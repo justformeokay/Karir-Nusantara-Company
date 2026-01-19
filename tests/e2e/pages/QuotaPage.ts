@@ -6,105 +6,68 @@ import { Page, Locator, expect } from '@playwright/test';
 
 export class QuotaPage {
   readonly page: Page;
+  readonly pageContainer: Locator;
   readonly pageTitle: Locator;
   readonly freeQuotaCard: Locator;
-  readonly paidQuotaCard: Locator;
-  readonly pricePerJobCard: Locator;
-  readonly paymentForm: Locator;
-  readonly paymentProofInput: Locator;
-  readonly quantityInput: Locator;
-  readonly totalPriceDisplay: Locator;
+  readonly paymentInfoCard: Locator;
   readonly submitPaymentButton: Locator;
-  readonly paymentHistoryTable: Locator;
-  readonly bankAccountInfo: Locator;
-  readonly copyAccountButton: Locator;
+  readonly paymentHistory: Locator;
+  readonly quotaValue: Locator;
+  readonly quotaUsage: Locator;
+  readonly quotaWarning: Locator;
 
   constructor(page: Page) {
     this.page = page;
-    this.pageTitle = page.locator('h1');
+    this.pageContainer = page.locator('[data-testid="quota-page"]');
+    this.pageTitle = page.locator('[data-testid="page-title"]');
     this.freeQuotaCard = page.locator('[data-testid="free-quota-card"]');
-    this.paidQuotaCard = page.locator('[data-testid="paid-quota-card"]');
-    this.pricePerJobCard = page.locator('[data-testid="price-per-job"]');
-    this.paymentForm = page.locator('[data-testid="payment-form"]');
-    this.paymentProofInput = page.locator('input[type="file"]');
-    this.quantityInput = page.locator('input[name="quantity"]');
-    this.totalPriceDisplay = page.locator('[data-testid="total-price"]');
-    this.submitPaymentButton = page.locator('[data-testid="submit-payment"]');
-    this.paymentHistoryTable = page.locator('[data-testid="payment-history"]');
-    this.bankAccountInfo = page.locator('[data-testid="bank-info"]');
-    this.copyAccountButton = page.locator('[data-testid="copy-account"]');
+    this.paymentInfoCard = page.locator('[data-testid="payment-info-card"]');
+    this.submitPaymentButton = page.locator('[data-testid="submit-payment-button"]');
+    this.paymentHistory = page.locator('[data-testid="payment-history"]');
+    this.quotaValue = page.locator('[data-testid="quota-value"]');
+    this.quotaUsage = page.locator('[data-testid="quota-usage"]');
+    this.quotaWarning = page.locator('[data-testid="quota-warning"]');
   }
 
   async goto() {
     await this.page.goto('/quota');
-    await expect(this.pageTitle).toContainText('Kuota');
+    // Wait for page to be visible
+    await expect(this.pageContainer).toBeVisible({ timeout: 10000 });
   }
 
-  async getFreeQuota(): Promise<{ used: number; remaining: number; total: number }> {
-    const text = await this.freeQuotaCard.textContent();
-    // Parse format like "2/5 Used" or similar
-    const match = text?.match(/(\d+)\/(\d+)/);
-    if (match) {
-      const used = parseInt(match[1], 10);
-      const total = parseInt(match[2], 10);
-      return { used, remaining: total - used, total };
-    }
-    return { used: 0, remaining: 0, total: 0 };
+  async getFreeQuota(): Promise<{ remaining: number }> {
+    const text = await this.quotaValue.textContent();
+    const remaining = parseInt(text || '0', 10);
+    return { remaining };
   }
 
-  async getPaidQuota(): Promise<number> {
-    const text = await this.paidQuotaCard.locator('[data-testid="quota-value"]').textContent();
-    return parseInt(text || '0', 10);
+  async getQuotaUsage(): Promise<string> {
+    return await this.quotaUsage.textContent() || '';
   }
 
-  async getPricePerJob(): Promise<number> {
-    const text = await this.pricePerJobCard.locator('[data-testid="price-value"]').textContent();
-    // Extract number from formatted price like "Rp 150.000"
-    const match = text?.replace(/[^\d]/g, '');
-    return parseInt(match || '0', 10);
+  async expectQuotaWarning() {
+    await expect(this.quotaWarning).toBeVisible();
   }
 
-  async setQuantity(quantity: number) {
-    await this.quantityInput.fill(quantity.toString());
+  async expectNoQuotaWarning() {
+    await expect(this.quotaWarning).not.toBeVisible();
   }
 
-  async getTotalPrice(): Promise<string> {
-    return await this.totalPriceDisplay.textContent() || '';
-  }
-
-  async uploadPaymentProof(filePath: string) {
-    await this.paymentProofInput.setInputFiles(filePath);
-  }
-
-  async submitPayment() {
+  async clickSubmitPayment() {
     await this.submitPaymentButton.click();
   }
 
-  async copyAccountNumber() {
-    await this.copyAccountButton.click();
-  }
-
   async getPaymentHistoryCount(): Promise<number> {
-    const rows = this.paymentHistoryTable.locator('tbody tr');
+    const rows = this.paymentHistory.locator('[data-testid="payment-history-list"] tr');
     return await rows.count();
   }
 
-  async expectPaymentStatus(index: number, status: 'pending' | 'confirmed' | 'rejected') {
-    const row = this.paymentHistoryTable.locator('tbody tr').nth(index);
-    const statusCell = row.locator('[data-testid="payment-status"]');
-    await expect(statusCell).toContainText(status);
-  }
-
   async expectQuotaLoaded() {
-    await expect(this.freeQuotaCard).toBeVisible();
-    await expect(this.paidQuotaCard).toBeVisible();
+    await expect(this.freeQuotaCard).toBeVisible({ timeout: 10000 });
+    await expect(this.paymentInfoCard).toBeVisible({ timeout: 10000 });
   }
 
-  async expectPaymentFormVisible() {
-    await expect(this.paymentForm).toBeVisible();
-  }
-
-  async expectBankInfoVisible() {
-    await expect(this.bankAccountInfo).toBeVisible();
+  async expectPaymentHistoryVisible() {
+    await expect(this.paymentHistory).toBeVisible();
   }
 }

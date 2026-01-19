@@ -41,9 +41,11 @@ const statusConfig: Record<Exclude<CompanyStatus, 'verified'>, {
 }
 
 export default function CompanyStatusBanner({ status }: CompanyStatusBannerProps) {
-  if (status === 'verified') return null
+  if (!status || status === 'verified') return null
 
-  const config = statusConfig[status]
+  const config = statusConfig[status as Exclude<CompanyStatus, 'verified'>]
+  if (!config) return null
+
   const Icon = config.icon
 
   return (

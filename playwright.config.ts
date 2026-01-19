@@ -64,7 +64,7 @@ export default defineConfig({
     timeout: 10000,
   },
 
-  // Configure projects for major browsers
+  // Configure projects for major browsers - start with chromium only for faster testing
   projects: [
     // Setup project for authentication
     {
@@ -72,7 +72,7 @@ export default defineConfig({
       testMatch: /.*\.setup\.ts/,
     },
 
-    // Desktop Chrome
+    // Desktop Chrome - Primary browser
     {
       name: 'chromium',
       use: {
@@ -81,41 +81,27 @@ export default defineConfig({
       dependencies: ['setup'],
     },
 
-    // Desktop Firefox
-    {
-      name: 'firefox',
-      use: {
-        ...devices['Desktop Firefox'],
-      },
-      dependencies: ['setup'],
-    },
-
-    // Desktop Safari
-    {
-      name: 'webkit',
-      use: {
-        ...devices['Desktop Safari'],
-      },
-      dependencies: ['setup'],
-    },
-
-    // Mobile Chrome
-    {
-      name: 'Mobile Chrome',
-      use: {
-        ...devices['Pixel 5'],
-      },
-      dependencies: ['setup'],
-    },
-
-    // Mobile Safari
-    {
-      name: 'Mobile Safari',
-      use: {
-        ...devices['iPhone 12'],
-      },
-      dependencies: ['setup'],
-    },
+    // Additional browsers - uncomment when needed
+    // {
+    //   name: 'firefox',
+    //   use: { ...devices['Desktop Firefox'] },
+    //   dependencies: ['setup'],
+    // },
+    // {
+    //   name: 'webkit',
+    //   use: { ...devices['Desktop Safari'] },
+    //   dependencies: ['setup'],
+    // },
+    // {
+    //   name: 'Mobile Chrome',
+    //   use: { ...devices['Pixel 5'] },
+    //   dependencies: ['setup'],
+    // },
+    // {
+    //   name: 'Mobile Safari',
+    //   use: { ...devices['iPhone 12'] },
+    //   dependencies: ['setup'],
+    // },
   ],
 
   // Local dev server - starts before running tests

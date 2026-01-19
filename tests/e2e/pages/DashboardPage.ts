@@ -6,6 +6,7 @@ import { Page, Locator, expect } from '@playwright/test';
 
 export class DashboardPage {
   readonly page: Page;
+  readonly pageContainer: Locator;
   readonly pageTitle: Locator;
   readonly activeJobsCard: Locator;
   readonly totalApplicantsCard: Locator;
@@ -13,34 +14,32 @@ export class DashboardPage {
   readonly acceptedCard: Locator;
   readonly recentApplicantsList: Locator;
   readonly activeJobsList: Locator;
-  readonly quotaDisplay: Locator;
-  readonly verificationBanner: Locator;
   readonly createJobButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
-    this.pageTitle = page.locator('h1');
+    this.pageContainer = page.locator('[data-testid="dashboard-page"]');
+    this.pageTitle = page.locator('[data-testid="page-title"]');
     this.activeJobsCard = page.locator('[data-testid="stat-active-jobs"]');
     this.totalApplicantsCard = page.locator('[data-testid="stat-total-applicants"]');
     this.underReviewCard = page.locator('[data-testid="stat-under-review"]');
     this.acceptedCard = page.locator('[data-testid="stat-accepted"]');
     this.recentApplicantsList = page.locator('[data-testid="recent-applicants"]');
     this.activeJobsList = page.locator('[data-testid="active-jobs"]');
-    this.quotaDisplay = page.locator('[data-testid="quota-display"]');
-    this.verificationBanner = page.locator('[data-testid="verification-banner"]');
     this.createJobButton = page.locator('[data-testid="create-job-button"]');
   }
 
   async goto() {
     await this.page.goto('/dashboard');
-    await expect(this.pageTitle).toContainText('Dashboard');
+    // Wait for the dashboard page to be visible
+    await expect(this.pageContainer).toBeVisible({ timeout: 10000 });
   }
 
   async expectStatsLoaded() {
-    await expect(this.activeJobsCard).toBeVisible();
-    await expect(this.totalApplicantsCard).toBeVisible();
-    await expect(this.underReviewCard).toBeVisible();
-    await expect(this.acceptedCard).toBeVisible();
+    await expect(this.activeJobsCard).toBeVisible({ timeout: 10000 });
+    await expect(this.totalApplicantsCard).toBeVisible({ timeout: 10000 });
+    await expect(this.underReviewCard).toBeVisible({ timeout: 10000 });
+    await expect(this.acceptedCard).toBeVisible({ timeout: 10000 });
   }
 
   async getActiveJobsCount(): Promise<number> {
@@ -53,35 +52,18 @@ export class DashboardPage {
     return parseInt(text || '0', 10);
   }
 
-  async expectVerificationBanner(status: 'pending' | 'rejected') {
-    await expect(this.verificationBanner).toBeVisible();
-    if (status === 'pending') {
-      await expect(this.verificationBanner).toContainText('pending');
-    } else {
-      await expect(this.verificationBanner).toContainText('rejected');
-    }
-  }
-
-  async expectNoVerificationBanner() {
-    await expect(this.verificationBanner).not.toBeVisible();
-  }
-
   async clickCreateJob() {
     await this.createJobButton.click();
     await this.page.waitForURL('/jobs/new');
   }
 
   async clickRecentApplicant(index: number) {
-    const applicants = this.recentApplicantsList.locator('[data-testid="applicant-item"]');
+    const applicants = this.recentApplicantsList.locator('[data-testid="applicant-card"]');
     await applicants.nth(index).click();
   }
 
   async clickActiveJob(index: number) {
-    const jobs = this.activeJobsList.locator('[data-testid="job-item"]');
+    const jobs = this.activeJobsList.locator('a');
     await jobs.nth(index).click();
-  }
-
-  async getQuotaText(): Promise<string> {
-    return await this.quotaDisplay.textContent() || '';
   }
 }

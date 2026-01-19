@@ -148,7 +148,7 @@ export default function JobFormPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6" data-testid="job-form-page">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link to="/jobs">
@@ -157,7 +157,7 @@ export default function JobFormPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-gray-900" data-testid="page-title">
             {isEdit ? 'Edit Lowongan' : 'Buat Lowongan Baru'}
           </h1>
           <p className="text-gray-600 mt-1">
@@ -168,7 +168,7 @@ export default function JobFormPage() {
         </div>
       </div>
 
-      <form className="space-y-6">
+      <form className="space-y-6" data-testid="job-form">
         {/* Basic Information */}
         <Card>
           <CardHeader>
@@ -185,6 +185,7 @@ export default function JobFormPage() {
                 placeholder="contoh: Senior Frontend Developer"
                 {...register('title')}
                 className={errors.title ? 'border-red-500' : ''}
+                data-testid="job-title-input"
               />
               {errors.title && (
                 <p className="text-sm text-red-500">{errors.title.message}</p>
@@ -195,7 +196,7 @@ export default function JobFormPage() {
               <div className="space-y-2">
                 <Label>Kategori *</Label>
                 <Select onValueChange={(value) => setValue('category', value)}>
-                  <SelectTrigger className={errors.category ? 'border-red-500' : ''}>
+                  <SelectTrigger className={errors.category ? 'border-red-500' : ''} data-testid="job-category-select">
                     <SelectValue placeholder="Pilih kategori" />
                   </SelectTrigger>
                   <SelectContent>
@@ -214,7 +215,7 @@ export default function JobFormPage() {
               <div className="space-y-2">
                 <Label>Tipe Pekerjaan *</Label>
                 <Select onValueChange={(value) => setValue('employmentType', value)}>
-                  <SelectTrigger className={errors.employmentType ? 'border-red-500' : ''}>
+                  <SelectTrigger className={errors.employmentType ? 'border-red-500' : ''} data-testid="job-type-select">
                     <SelectValue placeholder="Pilih tipe" />
                   </SelectTrigger>
                   <SelectContent>
@@ -367,7 +368,7 @@ export default function JobFormPage() {
 
         {/* Actions */}
         <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between gap-4 pt-4">
-          <Button variant="outline" type="button" onClick={() => navigate('/jobs')}>
+          <Button variant="outline" type="button" onClick={() => navigate('/jobs')} data-testid="cancel-button">
             Batal
           </Button>
           <div className="flex gap-3">
@@ -377,6 +378,7 @@ export default function JobFormPage() {
               disabled={isSavingDraft}
               onClick={handleSubmit(onSaveDraft)}
               className="gap-2"
+              data-testid="save-draft-button"
             >
               {isSavingDraft ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -390,6 +392,7 @@ export default function JobFormPage() {
               disabled={isLoading}
               onClick={handleSubmit(onPublish)}
               className="gap-2"
+              data-testid="publish-button"
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

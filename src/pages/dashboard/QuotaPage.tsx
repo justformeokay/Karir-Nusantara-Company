@@ -117,10 +117,10 @@ export default function QuotaPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="quota-page">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Kuota & Pembayaran</h1>
+        <h1 className="text-2xl font-bold text-gray-900" data-testid="page-title">Kuota & Pembayaran</h1>
         <p className="text-gray-600 mt-1">
           Kelola kuota lowongan dan riwayat pembayaran
         </p>
@@ -129,7 +129,7 @@ export default function QuotaPage() {
       {/* Quota Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Free Quota Card */}
-        <Card>
+        <Card data-testid="free-quota-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-primary" />
@@ -155,18 +155,18 @@ export default function QuotaPage() {
               <>
                 <div className="flex items-end justify-between">
                   <div>
-                    <p className="text-4xl font-bold text-gray-900">
+                    <p className="text-4xl font-bold text-gray-900" data-testid="quota-value">
                       {quota?.remaining_free_quota ?? 0}
                     </p>
                     <p className="text-sm text-gray-500">lowongan tersisa</p>
                   </div>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-500" data-testid="quota-usage">
                     {quota?.used_free_quota ?? 0} / {quota?.free_quota ?? 5} terpakai
                   </p>
                 </div>
                 <Progress value={quotaPercentage} className="h-3" />
                 {quota && quota.remaining_free_quota === 0 && (
-                  <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg">
+                  <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg" data-testid="quota-warning">
                     <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                     <div>
                       <p className="text-sm font-medium text-amber-800">
@@ -184,7 +184,7 @@ export default function QuotaPage() {
         </Card>
 
         {/* Payment Info Card */}
-        <Card>
+        <Card data-testid="payment-info-card">
           <CardHeader>
             <CardTitle>Informasi Pembayaran</CardTitle>
             <CardDescription>
@@ -237,7 +237,7 @@ export default function QuotaPage() {
                 </div>
               </div>
             )}
-            <Button className="w-full" onClick={() => setShowPaymentDialog(true)}>
+            <Button className="w-full" onClick={() => setShowPaymentDialog(true)} data-testid="submit-payment-button">
               <Upload className="w-4 h-4 mr-2" />
               Upload Bukti Pembayaran
             </Button>
@@ -246,7 +246,7 @@ export default function QuotaPage() {
       </div>
 
       {/* Payment History */}
-      <Card>
+      <Card data-testid="payment-history">
         <CardHeader>
           <CardTitle>Riwayat Pembayaran</CardTitle>
           <CardDescription>
@@ -263,7 +263,7 @@ export default function QuotaPage() {
                 <TableHead>Tanggal</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody data-testid="payment-history-list">
               {isLoadingPayments ? (
                 [...Array(3)].map((_, i) => (
                   <TableRow key={i}>

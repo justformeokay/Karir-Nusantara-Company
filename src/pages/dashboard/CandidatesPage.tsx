@@ -79,17 +79,17 @@ export default function CandidatesPage() {
   const jobs = jobsData?.data || []
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="candidates-page">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Kandidat</h1>
+        <h1 className="text-2xl font-bold text-gray-900" data-testid="page-title">Kandidat</h1>
         <p className="text-gray-600 mt-1">
           Kelola semua pelamar dari berbagai lowongan
         </p>
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card data-testid="filters-section">
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
@@ -99,10 +99,11 @@ export default function CandidatesPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10"
+                data-testid="search-input"
               />
             </div>
             <Select value={jobFilter} onValueChange={setJobFilter}>
-              <SelectTrigger className="w-full md:w-56">
+              <SelectTrigger className="w-full md:w-56" data-testid="job-filter">
                 <SelectValue placeholder="Filter Lowongan" />
               </SelectTrigger>
               <SelectContent>
@@ -115,7 +116,7 @@ export default function CandidatesPage() {
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-48">
+              <SelectTrigger className="w-full md:w-48" data-testid="status-filter">
                 <SelectValue placeholder="Filter Status" />
               </SelectTrigger>
               <SelectContent>
@@ -140,7 +141,7 @@ export default function CandidatesPage() {
       {/* Candidates Table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
+          <Table data-testid="candidates-list">
             <TableHeader>
               <TableRow>
                 <TableHead>Kandidat</TableHead>

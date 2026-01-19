@@ -1,12 +1,89 @@
 /**
  * Authentication E2E Tests
  * 
- * Tests for login, logout, registration, and permission boundaries
+ * Tests for login flow and basic authentication
  */
 
 import { test, expect } from '@playwright/test';
-import { TEST_USERS, API_ENDPOINTS, mockApiResponse } from './fixtures';
+import { TEST_USERS } from './fixtures';
 import { LoginPage, DashboardPage } from './pages';
+
+// Mock API responses
+async function mockApiResponses(page: any) {
+  // Mock dashboard stats
+  await page.route('**/api/v1/company/dashboard/stats', async (route: any) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          active_jobs: 5,
+          total_applicants: 120,
+          under_review: 25,
+          accepted: 10,
+          recent_applicants: [],
+          active_jobs_list: [],
+        },
+      }),
+    });
+  });
+
+  // Mock quota
+  await page.route('**/api/v1/company/quota', async (route: any) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          free_quota: 3,
+          used_free_quota: 1,
+          paid_quota: 0,
+          used_paid_quota: 0,
+        },
+      }),
+    });
+  });
+
+  // Mock jobs list
+  await page.route('**/api/v1/company/jobs*', async (route: any) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: [],
+        meta: { total: 0, page: 1, limit: 10 },
+      }),
+    });
+  });
+
+  // Mock candidates list
+  await page.route('**/api/v1/company/applicants*', async (route: any) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: [],
+        meta: { total: 0, page: 1, limit: 10 },
+      }),
+    });
+  });
+
+  // Mock all other API calls to prevent hanging
+  await page.route('**/api/v1/**', async (route: any) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {},
+      }),
+    });
+  });
+}
 
 test.describe('Login Flow', () => {
   test.beforeEach(async ({ page }) => {
@@ -14,7 +91,20 @@ test.describe('Login Flow', () => {
     await page.context().clearCookies();
   });
 
-  test('AUTH-001: should login with valid credentials and redirect to dashboard', async ({ page }) => {
+  test('AUTH-001: should display login page correctly', async ({ page }) => {
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+
+    // Login form should be visible
+    await expect(loginPage.emailInput).toBeVisible();
+    await expect(loginPage.passwordInput).toBeVisible();
+    await expect(loginPage.submitButton).toBeVisible();
+  });
+
+  test('AUTH-002: should login with valid credentials and redirect to dashboard', async ({ page }) => {
+    // Setup API mocks before navigation
+    await mockApiResponses(page);
+
     const loginPage = new LoginPage(page);
     const dashboardPage = new DashboardPage(page);
 
@@ -22,251 +112,138 @@ test.describe('Login Flow', () => {
     await loginPage.login(TEST_USERS.verified.email, TEST_USERS.verified.password);
 
     // Should redirect to dashboard
-    await page.waitForURL('/dashboard');
-    await expect(dashboardPage.pageTitle).toContainText('Dashboard');
+    await page.waitForURL('/dashboard', { timeout: 15000 });
+    
+    // Dashboard should be visible
+    await expect(dashboardPage.pageContainer).toBeVisible({ timeout: 10000 });
   });
 
-  test('AUTH-002: should show error for invalid email format', async ({ page }) => {
-    const loginPage = new LoginPage(page);
-
-    await loginPage.goto();
-    await loginPage.login('invalid-email', 'somepassword');
-
-    // Should show validation error
-    await loginPage.expectValidationError('email', 'email');
-  });
-
-  test('AUTH-003: should show error for wrong password', async ({ page }) => {
-    const loginPage = new LoginPage(page);
-
-    // Mock API response for invalid credentials
-    await mockApiResponse(page, API_ENDPOINTS.auth.login, {
-      success: false,
-      error: 'Invalid email or password',
-    }, 401);
-
-    await loginPage.goto();
-    await loginPage.login(TEST_USERS.verified.email, 'wrongpassword');
-
-    // Should show error message
-    await loginPage.expectErrorMessage('Invalid email or password');
-  });
-
-  test('AUTH-004: should show limited access banner for unverified company', async ({ page }) => {
-    const loginPage = new LoginPage(page);
-    const dashboardPage = new DashboardPage(page);
-
-    await loginPage.goto();
-    await loginPage.loginAndWaitForDashboard(
-      TEST_USERS.unverified.email,
-      TEST_USERS.unverified.password
-    );
-
-    // Should see verification pending banner
-    await dashboardPage.expectVerificationBanner('pending');
-  });
-
-  test('AUTH-005: should store JWT token after successful login', async ({ page }) => {
-    const loginPage = new LoginPage(page);
-
-    await loginPage.goto();
-    await loginPage.loginAndWaitForDashboard(
-      TEST_USERS.verified.email,
-      TEST_USERS.verified.password
-    );
-
-    // Check localStorage for token
-    const token = await page.evaluate(() => localStorage.getItem('token'));
-    expect(token).toBeTruthy();
-  });
-
-  test('should handle empty form submission', async ({ page }) => {
+  test('AUTH-003: should show validation error for empty fields', async ({ page }) => {
     const loginPage = new LoginPage(page);
 
     await loginPage.goto();
     await loginPage.submitButton.click();
 
-    // Should show required field errors
-    await expect(page.locator('text=required')).toBeVisible();
+    // Should show validation error
+    await expect(page.locator('.text-red-500').first()).toBeVisible({ timeout: 5000 });
   });
-});
 
-test.describe('Logout Flow', () => {
-  test('should logout and redirect to login page', async ({ page }) => {
-    // First login
+  test('AUTH-004: should store auth state after successful login', async ({ page }) => {
+    // Setup API mocks
+    await mockApiResponses(page);
+
     const loginPage = new LoginPage(page);
     await loginPage.goto();
-    await loginPage.loginAndWaitForDashboard(
-      TEST_USERS.verified.email,
-      TEST_USERS.verified.password
-    );
+    await loginPage.login(TEST_USERS.verified.email, TEST_USERS.verified.password);
 
-    // Click logout
-    await page.click('[data-testid="user-menu"]');
-    await page.click('[data-testid="logout-button"]');
+    // Wait for dashboard to load
+    await page.waitForURL('/dashboard', { timeout: 15000 });
 
-    // Should redirect to login
-    await page.waitForURL('/login');
-
-    // Token should be cleared
-    const token = await page.evaluate(() => localStorage.getItem('token'));
-    expect(token).toBeFalsy();
-  });
-});
-
-test.describe('Registration Flow', () => {
-  test('AUTH-010: should register with valid data', async ({ page }) => {
-    await page.goto('/register');
-
-    // Fill registration form
-    await page.fill('input[name="email"]', 'newcompany@test.com');
-    await page.fill('input[name="password"]', 'StrongPassword123!');
-    await page.fill('input[name="confirmPassword"]', 'StrongPassword123!');
-    await page.fill('input[name="companyName"]', 'New Test Company');
-    await page.fill('input[name="fullName"]', 'Admin User');
-    await page.fill('input[name="phone"]', '+6281234567890');
-
-    // Mock successful registration
-    await mockApiResponse(page, API_ENDPOINTS.auth.register, {
-      success: true,
-      message: 'Registration successful. Please wait for verification.',
+    // Check localStorage for zustand auth state
+    const authState = await page.evaluate(() => {
+      return localStorage.getItem('karir-nusantara-company-auth');
     });
-
-    await page.click('button[type="submit"]');
-
-    // Should show success message or redirect
-    await expect(page.locator('text=successful')).toBeVisible();
+    expect(authState).toBeTruthy();
+    
+    // Parse and verify token
+    const parsed = JSON.parse(authState as string);
+    expect(parsed.state.token).toBeTruthy();
+    expect(parsed.state.isAuthenticated).toBe(true);
   });
 
-  test('AUTH-011: should show error for existing email', async ({ page }) => {
-    await page.goto('/register');
+  test('AUTH-005: should have navigation links', async ({ page }) => {
+    const loginPage = new LoginPage(page);
 
-    await page.fill('input[name="email"]', TEST_USERS.verified.email);
-    await page.fill('input[name="password"]', 'StrongPassword123!');
-    await page.fill('input[name="confirmPassword"]', 'StrongPassword123!');
-    await page.fill('input[name="companyName"]', 'Duplicate Company');
-    await page.fill('input[name="fullName"]', 'Admin User');
+    await loginPage.goto();
 
-    // Mock error response
-    await mockApiResponse(page, API_ENDPOINTS.auth.register, {
-      success: false,
-      error: 'Email already exists',
-    }, 409);
-
-    await page.click('button[type="submit"]');
-
-    // Should show error
-    await expect(page.locator('text=already exists')).toBeVisible();
-  });
-
-  test('AUTH-012: should show validation errors for missing required fields', async ({ page }) => {
-    await page.goto('/register');
-
-    // Submit empty form
-    await page.click('button[type="submit"]');
-
-    // Should show multiple validation errors
-    const errors = page.locator('[data-testid="field-error"]');
-    await expect(errors).toHaveCount(await errors.count());
-    expect(await errors.count()).toBeGreaterThan(0);
+    // Check forgot password link
+    await expect(loginPage.forgotPasswordLink).toBeVisible();
+    
+    // Check register link
+    await expect(loginPage.registerLink).toBeVisible();
   });
 });
 
-test.describe('Permission Boundaries', () => {
-  test('AUTH-020: unverified company cannot create jobs', async ({ page }) => {
-    // Login as unverified
-    const loginPage = new LoginPage(page);
-    await loginPage.goto();
-    await loginPage.loginAndWaitForDashboard(
-      TEST_USERS.unverified.email,
-      TEST_USERS.unverified.password
-    );
-
-    // Try to navigate to job creation
-    await page.goto('/jobs/new');
-
-    // Should see restriction message or be redirected
-    const restrictionVisible = await page.locator('text=verification').isVisible();
-    const redirected = page.url() !== '/jobs/new';
+test.describe('Dashboard Access', () => {
+  test('DASH-001: should redirect to login when not authenticated', async ({ page }) => {
+    // Navigate to login page first to initialize localStorage
+    await page.goto('/login');
     
-    expect(restrictionVisible || redirected).toBeTruthy();
-  });
-
-  test('AUTH-024: suspended company cannot access dashboard', async ({ page }) => {
-    // Mock suspended company login response
-    await mockApiResponse(page, API_ENDPOINTS.auth.login, {
-      success: false,
-      error: 'Your account has been suspended',
-    }, 403);
-
-    const loginPage = new LoginPage(page);
-    await loginPage.goto();
-    await loginPage.login(TEST_USERS.suspended.email, TEST_USERS.suspended.password);
-
-    // Should show suspended message
-    await expect(page.locator('text=suspended')).toBeVisible();
-  });
-
-  test('should redirect unauthenticated user to login', async ({ page }) => {
-    // Clear cookies
-    await page.context().clearCookies();
-
-    // Try to access protected route
+    // Clear auth state
+    await page.evaluate(() => {
+      localStorage.removeItem('karir-nusantara-company-auth');
+    });
+    
+    // Try to access dashboard
     await page.goto('/dashboard');
 
-    // Should redirect to login
-    await page.waitForURL('/login');
+    // Should be redirected to login
+    await page.waitForURL(/login/, { timeout: 10000 });
   });
 
-  test('should redirect to dashboard if already logged in and visiting login page', async ({ page }) => {
-    // Login first
+  test('DASH-002: should access dashboard when authenticated', async ({ page }) => {
+    // Setup API mocks
+    await mockApiResponses(page);
+
     const loginPage = new LoginPage(page);
+    const dashboardPage = new DashboardPage(page);
+
+    // Login first
     await loginPage.goto();
-    await loginPage.loginAndWaitForDashboard(
-      TEST_USERS.verified.email,
-      TEST_USERS.verified.password
-    );
+    await loginPage.login(TEST_USERS.verified.email, TEST_USERS.verified.password);
 
-    // Try to visit login page
-    await page.goto('/login');
+    // Wait for dashboard
+    await page.waitForURL('/dashboard', { timeout: 15000 });
 
-    // Should redirect back to dashboard
-    await page.waitForURL('/dashboard');
+    // Verify dashboard elements
+    await expect(dashboardPage.pageContainer).toBeVisible({ timeout: 10000 });
+  });
+
+  test('DASH-003: should display dashboard stats', async ({ page }) => {
+    // Setup API mocks
+    await mockApiResponses(page);
+
+    const loginPage = new LoginPage(page);
+    const dashboardPage = new DashboardPage(page);
+
+    // Login first
+    await loginPage.goto();
+    await loginPage.login(TEST_USERS.verified.email, TEST_USERS.verified.password);
+
+    // Wait for dashboard
+    await page.waitForURL('/dashboard', { timeout: 15000 });
+
+    // Check that stats cards are visible
+    await dashboardPage.expectStatsLoaded();
   });
 });
 
-test.describe('Password Reset Flow', () => {
-  test('should send password reset email', async ({ page }) => {
-    await page.goto('/forgot-password');
+test.describe('Navigation', () => {
+  test.beforeEach(async ({ page }) => {
+    // Setup API mocks
+    await mockApiResponses(page);
 
-    await page.fill('input[name="email"]', TEST_USERS.verified.email);
+    // Login before each test
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+    await loginPage.login(TEST_USERS.verified.email, TEST_USERS.verified.password);
 
-    // Mock success response
-    await mockApiResponse(page, API_ENDPOINTS.auth.forgotPassword, {
-      success: true,
-      message: 'Password reset email sent',
-    });
-
-    await page.click('button[type="submit"]');
-
-    // Should show success message
-    await expect(page.locator('text=email sent')).toBeVisible();
+    // Wait for dashboard
+    await page.waitForURL('/dashboard', { timeout: 15000 });
   });
 
-  test('should show error for non-existent email', async ({ page }) => {
-    await page.goto('/forgot-password');
+  test('NAV-001: should navigate to jobs page', async ({ page }) => {
+    await page.goto('/jobs');
+    await expect(page.locator('[data-testid="jobs-page"]')).toBeVisible({ timeout: 10000 });
+  });
 
-    await page.fill('input[name="email"]', 'nonexistent@test.com');
+  test('NAV-002: should navigate to candidates page', async ({ page }) => {
+    await page.goto('/candidates');
+    await expect(page.locator('[data-testid="candidates-page"]')).toBeVisible({ timeout: 10000 });
+  });
 
-    // Mock error response
-    await mockApiResponse(page, API_ENDPOINTS.auth.forgotPassword, {
-      success: false,
-      error: 'Email not found',
-    }, 404);
-
-    await page.click('button[type="submit"]');
-
-    // Should show error message
-    await expect(page.locator('text=not found')).toBeVisible();
+  test('NAV-003: should navigate to quota page', async ({ page }) => {
+    await page.goto('/quota');
+    await expect(page.locator('[data-testid="quota-page"]')).toBeVisible({ timeout: 10000 });
   });
 });

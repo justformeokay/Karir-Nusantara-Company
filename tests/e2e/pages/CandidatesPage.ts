@@ -7,41 +7,38 @@ import { APPLICATION_STATUSES, VALID_STATUS_TRANSITIONS } from '../fixtures';
 
 export class CandidatesPage {
   readonly page: Page;
+  readonly pageContainer: Locator;
   readonly pageTitle: Locator;
   readonly candidatesList: Locator;
   readonly searchInput: Locator;
   readonly statusFilter: Locator;
   readonly jobFilter: Locator;
   readonly emptyState: Locator;
-  readonly loadingState: Locator;
-  readonly pagination: Locator;
-  readonly bulkActionsMenu: Locator;
 
   constructor(page: Page) {
     this.page = page;
-    this.pageTitle = page.locator('h1');
+    this.pageContainer = page.locator('[data-testid="candidates-page"]');
+    this.pageTitle = page.locator('[data-testid="page-title"]');
     this.candidatesList = page.locator('[data-testid="candidates-list"]');
-    this.searchInput = page.locator('input[placeholder*="Cari"]');
+    this.searchInput = page.locator('[data-testid="search-input"]');
     this.statusFilter = page.locator('[data-testid="status-filter"]');
     this.jobFilter = page.locator('[data-testid="job-filter"]');
-    this.emptyState = page.locator('[data-testid="empty-state"]');
-    this.loadingState = page.locator('[data-testid="loading-state"]');
-    this.pagination = page.locator('[data-testid="pagination"]');
-    this.bulkActionsMenu = page.locator('[data-testid="bulk-actions"]');
+    this.emptyState = page.locator('text=Tidak ada kandidat ditemukan');
   }
 
   async goto() {
     await this.page.goto('/candidates');
-    await expect(this.pageTitle).toContainText('Kandidat');
+    // Wait for page to be visible
+    await expect(this.pageContainer).toBeVisible({ timeout: 10000 });
   }
 
-  async getCandidateCard(index: number): Promise<Locator> {
-    return this.candidatesList.locator('[data-testid="candidate-card"]').nth(index);
+  async getCandidateRow(index: number): Promise<Locator> {
+    return this.candidatesList.locator('tbody tr').nth(index);
   }
 
   async getCandidatesCount(): Promise<number> {
-    const cards = this.candidatesList.locator('[data-testid="candidate-card"]');
-    return await cards.count();
+    const rows = this.candidatesList.locator('tbody tr');
+    return await rows.count();
   }
 
   async searchCandidates(query: string) {
@@ -56,28 +53,12 @@ export class CandidatesPage {
 
   async filterByJob(jobTitle: string) {
     await this.jobFilter.click();
-    await this.page.locator(`text=${jobTitle}`).click();
+    await this.page.getByText(jobTitle).click();
   }
 
   async clickCandidate(index: number) {
-    const card = await this.getCandidateCard(index);
-    await card.click();
-  }
-
-  async openCandidateMenu(index: number) {
-    const card = await this.getCandidateCard(index);
-    await card.locator('[data-testid="candidate-menu"]').click();
-  }
-
-  async updateCandidateStatus(index: number, newStatus: string) {
-    await this.openCandidateMenu(index);
-    await this.page.locator(`[data-testid="status-${newStatus}"]`).click();
-  }
-
-  async expectCandidateStatus(index: number, status: string) {
-    const card = await this.getCandidateCard(index);
-    const statusBadge = card.locator('[data-testid="candidate-status"]');
-    await expect(statusBadge).toContainText(status);
+    const row = await this.getCandidateRow(index);
+    await row.locator('a').first().click();
   }
 
   async expectEmptyState() {
@@ -85,8 +66,8 @@ export class CandidatesPage {
   }
 
   async expectCandidatesLoaded() {
-    await expect(this.loadingState).not.toBeVisible();
-    const hasCandidates = await this.candidatesList.isVisible();
+    // Either we have candidates or empty state
+    const hasCandidates = await this.candidatesList.locator('tbody tr').count() > 0;
     const isEmpty = await this.emptyState.isVisible();
     expect(hasCandidates || isEmpty).toBeTruthy();
   }

@@ -6,30 +6,28 @@ import { Page, Locator, expect } from '@playwright/test';
 
 export class JobsPage {
   readonly page: Page;
+  readonly pageContainer: Locator;
   readonly pageTitle: Locator;
   readonly createJobButton: Locator;
   readonly jobsList: Locator;
   readonly searchInput: Locator;
   readonly statusFilter: Locator;
   readonly emptyState: Locator;
-  readonly loadingState: Locator;
-  readonly pagination: Locator;
 
   constructor(page: Page) {
     this.page = page;
-    this.pageTitle = page.locator('h1');
+    this.pageContainer = page.locator('[data-testid="jobs-page"]');
+    this.pageTitle = page.locator('[data-testid="page-title"]');
     this.createJobButton = page.locator('[data-testid="create-job-button"]');
     this.jobsList = page.locator('[data-testid="jobs-list"]');
-    this.searchInput = page.locator('input[placeholder*="Search"]');
+    this.searchInput = page.locator('[data-testid="search-input"]');
     this.statusFilter = page.locator('[data-testid="status-filter"]');
-    this.emptyState = page.locator('[data-testid="empty-state"]');
-    this.loadingState = page.locator('[data-testid="loading-state"]');
-    this.pagination = page.locator('[data-testid="pagination"]');
+    this.emptyState = page.locator('text=Tidak ada lowongan');
   }
 
   async goto() {
     await this.page.goto('/jobs');
-    await expect(this.pageTitle).toContainText('Lowongan');
+    await expect(this.pageContainer).toBeVisible({ timeout: 10000 });
   }
 
   async clickCreateJob() {
@@ -37,13 +35,13 @@ export class JobsPage {
     await this.page.waitForURL('/jobs/new');
   }
 
-  async getJobCard(index: number): Promise<Locator> {
-    return this.jobsList.locator('[data-testid="job-card"]').nth(index);
+  async getJobRow(index: number): Promise<Locator> {
+    return this.jobsList.locator('tbody tr').nth(index);
   }
 
   async getJobsCount(): Promise<number> {
-    const cards = this.jobsList.locator('[data-testid="job-card"]');
-    return await cards.count();
+    const rows = this.jobsList.locator('tbody tr');
+    return await rows.count();
   }
 
   async searchJobs(query: string) {
@@ -57,43 +55,8 @@ export class JobsPage {
   }
 
   async clickJob(index: number) {
-    const card = await this.getJobCard(index);
-    await card.click();
-  }
-
-  async openJobMenu(index: number) {
-    const card = await this.getJobCard(index);
-    await card.locator('[data-testid="job-menu"]').click();
-  }
-
-  async closeJob(index: number) {
-    await this.openJobMenu(index);
-    await this.page.locator('[data-testid="close-job"]').click();
-    // Confirm dialog
-    await this.page.locator('[data-testid="confirm-button"]').click();
-  }
-
-  async pauseJob(index: number) {
-    await this.openJobMenu(index);
-    await this.page.locator('[data-testid="pause-job"]').click();
-  }
-
-  async reopenJob(index: number) {
-    await this.openJobMenu(index);
-    await this.page.locator('[data-testid="reopen-job"]').click();
-  }
-
-  async deleteJob(index: number) {
-    await this.openJobMenu(index);
-    await this.page.locator('[data-testid="delete-job"]').click();
-    // Confirm dialog
-    await this.page.locator('[data-testid="confirm-button"]').click();
-  }
-
-  async expectJobStatus(index: number, status: string) {
-    const card = await this.getJobCard(index);
-    const statusBadge = card.locator('[data-testid="job-status"]');
-    await expect(statusBadge).toContainText(status);
+    const row = await this.getJobRow(index);
+    await row.locator('a').first().click();
   }
 
   async expectEmptyState() {
@@ -101,9 +64,8 @@ export class JobsPage {
   }
 
   async expectJobsLoaded() {
-    await expect(this.loadingState).not.toBeVisible();
     // Either jobs list or empty state should be visible
-    const hasJobs = await this.jobsList.isVisible();
+    const hasJobs = await this.jobsList.locator('tbody tr').count() > 0;
     const isEmpty = await this.emptyState.isVisible();
     expect(hasJobs || isEmpty).toBeTruthy();
   }

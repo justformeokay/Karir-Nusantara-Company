@@ -7,7 +7,6 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import type { Company } from '@/types'
 import {
   Select,
   SelectContent,
@@ -16,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAuthStore } from '@/stores/authStore'
+import { authApi } from '@/api/auth'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 
 const registerSchema = z.object({
@@ -63,28 +63,31 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true)
     try {
-      // Simulate API call - replace with actual API
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-      
-      // Mock response - new company is pending verification
-      const mockCompany: Company = {
-        id: 1,
+      // Call actual backend API
+      const response = await authApi.register({
         email: data.email,
-        role: 'company',
+        password: data.password,
         full_name: 'Admin',
+        phone: data.phone,
+        role: 'company',
         company_name: data.companyName,
-        company_industry: data.industry,
-        is_active: true,
-        is_verified: false,
-        verification_status: 'pending',
-        created_at: new Date().toISOString(),
+      })
+
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Pendaftaran gagal')
       }
 
-      setAuth('mock-jwt-token', mockCompany)
-      toast.success('Pendaftaran berhasil! Akun Anda sedang dalam proses verifikasi.')
+      // Save auth data
+      setAuth(response.data.access_token, response.data.user)
+      
+      toast.success('Pendaftaran berhasil! Selamat datang di dashboard.')
       navigate('/dashboard')
     } catch (error) {
-      toast.error('Pendaftaran gagal. Silakan coba lagi.')
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Pendaftaran gagal. Silakan coba lagi.'
+      toast.error(errorMessage)
+      console.error('Register error:', error)
     } finally {
       setIsLoading(false)
     }

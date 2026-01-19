@@ -136,18 +136,18 @@ export default function JobsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="jobs-page">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Lowongan Kerja</h1>
+          <h1 className="text-2xl font-bold text-gray-900" data-testid="page-title">Lowongan Kerja</h1>
           <p className="text-gray-600 mt-1">
             Kelola lowongan pekerjaan perusahaan Anda
           </p>
         </div>
         {isVerified && (
           <Link to="/jobs/new">
-            <Button className="gap-2">
+            <Button className="gap-2" data-testid="create-job-button">
               <Plus className="w-4 h-4" />
               Buat Lowongan Baru
             </Button>
@@ -156,7 +156,7 @@ export default function JobsPage() {
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card data-testid="filters-section">
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
@@ -166,10 +166,11 @@ export default function JobsPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10"
+                data-testid="search-input"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-48">
+              <SelectTrigger className="w-full md:w-48" data-testid="status-filter">
                 <SelectValue placeholder="Filter Status" />
               </SelectTrigger>
               <SelectContent>
@@ -188,7 +189,7 @@ export default function JobsPage() {
       {/* Jobs Table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
+          <Table data-testid="jobs-list">
             <TableHeader>
               <TableRow>
                 <TableHead>Lowongan</TableHead>

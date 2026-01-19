@@ -1,0 +1,14 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:5174",
+      "localStorage": [
+        {
+          "name": "karir-nusantara-company-auth",
+          "value": "{\"state\":{\"token\":\"mock-jwt-token\",\"company\":{\"id\":1,\"email\":\"test-noquota@company.com\",\"role\":\"company\",\"full_name\":\"Admin HR\",\"company_name\":\"PT Teknologi Nusantara\",\"company_description\":\"Perusahaan teknologi terkemuka\",\"company_website\":\"https://teknologinusantara.com\",\"company_industry\":\"Teknologi\",\"company_size\":\"50-100\",\"company_location\":\"Jakarta\",\"is_active\":true,\"is_verified\":true,\"verification_status\":\"verified\",\"created_at\":\"2026-01-18T07:01:17.159Z\"},\"isAuthenticated\":true},\"version\":0}"
+        }
+      ]
+    }
+  ]
+}

@@ -12,18 +12,16 @@ setup('authenticate as verified company', async ({ page }) => {
   // Navigate to login page
   await page.goto('/login');
 
-  // Fill login form
-  await page.fill('input[name="email"]', TEST_USERS.verified.email);
-  await page.fill('input[name="password"]', TEST_USERS.verified.password);
+  // Wait for login form to be visible
+  await expect(page.locator('[data-testid="login-form"]')).toBeVisible({ timeout: 10000 });
+
+  // Fill login form using data-testid selectors
+  await page.locator('[data-testid="email-input"]').fill(TEST_USERS.verified.email);
+  await page.locator('[data-testid="password-input"]').fill(TEST_USERS.verified.password);
 
   // Submit form and wait for navigation
-  await Promise.all([
-    page.waitForURL('/dashboard'),
-    page.click('button[type="submit"]'),
-  ]);
-
-  // Verify we're logged in
-  await expect(page.locator('h1')).toContainText('Dashboard');
+  await page.locator('[data-testid="login-button"]').click();
+  await page.waitForURL('/dashboard', { timeout: 15000 });
 
   // Save storage state
   await page.context().storageState({ path: STORAGE_STATE.verified });
@@ -32,14 +30,13 @@ setup('authenticate as verified company', async ({ page }) => {
 // Setup authenticated session for unverified company
 setup('authenticate as unverified company', async ({ page }) => {
   await page.goto('/login');
+  await expect(page.locator('[data-testid="login-form"]')).toBeVisible({ timeout: 10000 });
 
-  await page.fill('input[name="email"]', TEST_USERS.unverified.email);
-  await page.fill('input[name="password"]', TEST_USERS.unverified.password);
+  await page.locator('[data-testid="email-input"]').fill(TEST_USERS.unverified.email);
+  await page.locator('[data-testid="password-input"]').fill(TEST_USERS.unverified.password);
 
-  await Promise.all([
-    page.waitForURL('/dashboard'),
-    page.click('button[type="submit"]'),
-  ]);
+  await page.locator('[data-testid="login-button"]').click();
+  await page.waitForURL('/dashboard', { timeout: 15000 });
 
   // Save storage state
   await page.context().storageState({ path: STORAGE_STATE.unverified });
@@ -48,14 +45,13 @@ setup('authenticate as unverified company', async ({ page }) => {
 // Setup authenticated session for company with no quota
 setup('authenticate as company with no quota', async ({ page }) => {
   await page.goto('/login');
+  await expect(page.locator('[data-testid="login-form"]')).toBeVisible({ timeout: 10000 });
 
-  await page.fill('input[name="email"]', TEST_USERS.noQuota.email);
-  await page.fill('input[name="password"]', TEST_USERS.noQuota.password);
+  await page.locator('[data-testid="email-input"]').fill(TEST_USERS.noQuota.email);
+  await page.locator('[data-testid="password-input"]').fill(TEST_USERS.noQuota.password);
 
-  await Promise.all([
-    page.waitForURL('/dashboard'),
-    page.click('button[type="submit"]'),
-  ]);
+  await page.locator('[data-testid="login-button"]').click();
+  await page.waitForURL('/dashboard', { timeout: 15000 });
 
   // Save storage state
   await page.context().storageState({ path: STORAGE_STATE.noQuota });

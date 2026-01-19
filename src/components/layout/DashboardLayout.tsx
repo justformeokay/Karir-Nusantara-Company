@@ -18,8 +18,8 @@ export default function DashboardLayout() {
         <Header />
 
         {/* Company Status Banner (if not verified) */}
-        {company && company.status !== 'verified' && (
-          <CompanyStatusBanner status={company.status} />
+        {company && company.verification_status && company.verification_status !== 'verified' && (
+          <CompanyStatusBanner status={company.verification_status} />
         )}
 
         {/* Page Content */}

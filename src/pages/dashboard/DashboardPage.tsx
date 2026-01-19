@@ -59,11 +59,11 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="dashboard-page">
       {/* Welcome Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-gray-900" data-testid="page-title">
             Selamat datang, {company?.company_name || company?.full_name}! 👋
           </h1>
           <p className="text-gray-600 mt-1">
@@ -72,7 +72,7 @@ export default function DashboardPage() {
         </div>
         {isVerified && (
           <Link to="/jobs/new">
-            <Button className="gap-2">
+            <Button className="gap-2" data-testid="create-job-button">
               <Plus className="w-4 h-4" />
               Buat Lowongan Baru
             </Button>
@@ -81,13 +81,13 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" data-testid="stats-grid">
+        <Card data-testid="stat-active-jobs">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Lowongan Aktif</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">
+                <p className="text-3xl font-bold text-gray-900 mt-1" data-testid="stat-value">
                   {stats?.active_jobs || 0}
                 </p>
               </div>
@@ -98,12 +98,12 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="stat-total-applicants">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Pelamar</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">
+                <p className="text-3xl font-bold text-gray-900 mt-1" data-testid="stat-value">
                   {stats?.total_applicants || 0}
                 </p>
               </div>
@@ -114,12 +114,12 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="stat-under-review">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Dalam Review</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">
+                <p className="text-3xl font-bold text-gray-900 mt-1" data-testid="stat-value">
                   {stats?.under_review || 0}
                 </p>
               </div>
@@ -130,12 +130,12 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="stat-accepted">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Kandidat Diterima</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">
+                <p className="text-3xl font-bold text-gray-900 mt-1" data-testid="stat-value">
                   {stats?.accepted_candidates || 0}
                 </p>
               </div>
@@ -207,7 +207,7 @@ export default function DashboardPage() {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Applicants */}
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2" data-testid="recent-applicants">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg font-semibold">Pelamar Terbaru</CardTitle>
@@ -224,6 +224,7 @@ export default function DashboardPage() {
                     key={applicant.id}
                     to={`/candidates/${applicant.id}`}
                     className="flex items-center justify-between py-3 border-b last:border-0 hover:bg-gray-50 -mx-2 px-2 rounded transition-colors"
+                    data-testid="applicant-card"
                   >
                     <div className="flex items-center gap-3">
                       {applicant.applicant_photo ? (
@@ -265,7 +266,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Active Jobs */}
-        <Card>
+        <Card data-testid="active-jobs">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg font-semibold">Lowongan Aktif</CardTitle>
