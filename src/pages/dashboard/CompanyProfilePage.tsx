@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -27,9 +28,12 @@ import {
   Clock,
   XCircle,
   AlertCircle,
+  FileText,
+  Upload,
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
+import { authApi } from '@/api/auth'
 import type { CompanyStatus } from '@/types'
 
 const profileSchema = z.object({
@@ -95,9 +99,34 @@ const statusConfig: Record<CompanyStatus, { label: string; icon: React.ElementTy
 
 export default function CompanyProfilePage() {
   const { company, updateCompany } = useAuthStore()
+  const queryClient = useQueryClient()
   const [isLoading, setIsLoading] = useState(false)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadedDocuments, setUploadedDocuments] = useState<{
+    ktp_founder?: string
+    akta_pendirian?: string
+    npwp?: string
+    nib?: string
+  }>({})
+  const [isDocumentsComplete, setIsDocumentsComplete] = useState(false)
+
+  // Check if all documents are uploaded
+  const checkDocumentsComplete = () => {
+    const allUploaded = 
+      uploadedDocuments.ktp_founder &&
+      uploadedDocuments.akta_pendirian &&
+      uploadedDocuments.npwp &&
+      uploadedDocuments.nib
+    setIsDocumentsComplete(!!allUploaded)
+    // Save to localStorage for quick access
+    localStorage.setItem('company_documents_complete', allUploaded ? 'true' : 'false')
+  }
+
+  // Check on component mount and when documents change
+  useEffect(() => {
+    checkDocumentsComplete()
+  }, [uploadedDocuments])
 
   // Mock company data as fallback
   const mockCompany = {
@@ -156,22 +185,64 @@ export default function CompanyProfilePage() {
   const onSubmit = async (data: ProfileFormData) => {
     setIsLoading(true)
     try {
-      // API call to update profile
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // Call API to update profile
+      const updateData = {
+        company_name: data.name,
+        company_industry: data.industry,
+        company_size: data.size,
+        company_location: data.location,
+        company_website: data.website,
+        company_description: data.description,
+      }
+
+      const response = await authApi.updateProfile(updateData)
       
-      // Update local state
-      if (company) {
+      if (response.success) {
+        // Update local store
         updateCompany({
           ...company,
-          ...data,
+          ...response.data,
         })
+        
+        // Invalidate cache
+        queryClient.invalidateQueries({ queryKey: ['profile'] })
+        queryClient.invalidateQueries({ queryKey: ['auth', 'me'] })
+        
+        toast.success('Profil perusahaan berhasil diperbarui!')
+      } else {
+        toast.error('Gagal memperbarui profil')
       }
-      
-      toast.success('Profil perusahaan berhasil diperbarui!')
     } catch (error) {
       toast.error('Gagal memperbarui profil')
+      console.error(error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleLegalDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>, docType: 'ktp_founder' | 'akta_pendirian' | 'npwp' | 'nib') => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Ukuran file maksimal 5MB')
+        return
+      }
+
+      const validTypes = ['application/pdf', 'image/jpeg', 'image/png']
+      if (!validTypes.includes(file.type)) {
+        toast.error('Format file harus PDF, JPG, atau PNG')
+        return
+      }
+
+      // For now, just show file name as uploaded
+      setUploadedDocuments({
+        ...uploadedDocuments,
+        [docType]: file.name,
+      })
+
+      toast.success(`${docType.replace('_', ' ')} berhasil diunggah`)
+
+      // TODO: Send to backend API
     }
   }
 
@@ -388,6 +459,189 @@ export default function CompanyProfilePage() {
           </Card>
         </div>
       </form>
+
+      {/* Legal Documents Section */}
+      <Card className={cn('border-2', isDocumentsComplete ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50')}>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {isDocumentsComplete ? (
+                <CheckCircle className="w-5 h-5 text-green-700" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-amber-700" />
+              )}
+              <div>
+                <CardTitle>
+                  {isDocumentsComplete ? '✓ Dokumen Legalitas Lengkap' : 'Dokumen Legalitas Perusahaan'}
+                </CardTitle>
+                <CardDescription>
+                  {isDocumentsComplete 
+                    ? 'Semua dokumen telah diunggah. Anda dapat membuat lowongan kerja.'
+                    : 'Lengkapi semua dokumen untuk membuat lowongan kerja'}
+                </CardDescription>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-sm font-semibold">
+                <span className={isDocumentsComplete ? 'text-green-700' : 'text-amber-700'}>
+                  {Object.keys(uploadedDocuments).length}/4 
+                </span>
+              </p>
+              <p className="text-xs text-gray-600">dokumen</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* KTP Pendiri */}
+            <div className="border-2 border-dashed border-amber-300 rounded-lg p-6">
+              <div className="text-center">
+                <FileText className="w-8 h-8 text-amber-700 mx-auto mb-3" />
+                <Label className="text-sm font-semibold text-gray-900 block mb-2">
+                  KTP Pendiri
+                </Label>
+                <p className="text-xs text-gray-600 mb-4">
+                  PDF, JPG, atau PNG. Max 5MB.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => document.getElementById('ktp-founder')?.click()}
+                  className="gap-2"
+                >
+                  <Upload className="w-4 h-4" />
+                  Pilih File
+                </Button>
+                <input
+                  id="ktp-founder"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => handleLegalDocumentUpload(e, 'ktp_founder')}
+                  className="hidden"
+                />
+                {uploadedDocuments.ktp_founder && (
+                  <p className="text-xs text-green-600 mt-2">✓ {uploadedDocuments.ktp_founder}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Akta Pendirian */}
+            <div className="border-2 border-dashed border-amber-300 rounded-lg p-6">
+              <div className="text-center">
+                <FileText className="w-8 h-8 text-amber-700 mx-auto mb-3" />
+                <Label className="text-sm font-semibold text-gray-900 block mb-2">
+                  Akta Pendirian Usaha
+                </Label>
+                <p className="text-xs text-gray-600 mb-4">
+                  PDF, JPG, atau PNG. Max 5MB.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => document.getElementById('akta-pendirian')?.click()}
+                  className="gap-2"
+                >
+                  <Upload className="w-4 h-4" />
+                  Pilih File
+                </Button>
+                <input
+                  id="akta-pendirian"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => handleLegalDocumentUpload(e, 'akta_pendirian')}
+                  className="hidden"
+                />
+                {uploadedDocuments.akta_pendirian && (
+                  <p className="text-xs text-green-600 mt-2">✓ {uploadedDocuments.akta_pendirian}</p>
+                )}
+              </div>
+            </div>
+
+            {/* NPWP */}
+            <div className="border-2 border-dashed border-amber-300 rounded-lg p-6">
+              <div className="text-center">
+                <FileText className="w-8 h-8 text-amber-700 mx-auto mb-3" />
+                <Label className="text-sm font-semibold text-gray-900 block mb-2">
+                  NPWP Perusahaan
+                </Label>
+                <p className="text-xs text-gray-600 mb-4">
+                  PDF, JPG, atau PNG. Max 5MB.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => document.getElementById('npwp')?.click()}
+                  className="gap-2"
+                >
+                  <Upload className="w-4 h-4" />
+                  Pilih File
+                </Button>
+                <input
+                  id="npwp"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => handleLegalDocumentUpload(e, 'npwp')}
+                  className="hidden"
+                />
+                {uploadedDocuments.npwp && (
+                  <p className="text-xs text-green-600 mt-2">✓ {uploadedDocuments.npwp}</p>
+                )}
+              </div>
+            </div>
+
+            {/* NIB */}
+            <div className="border-2 border-dashed border-amber-300 rounded-lg p-6">
+              <div className="text-center">
+                <FileText className="w-8 h-8 text-amber-700 mx-auto mb-3" />
+                <Label className="text-sm font-semibold text-gray-900 block mb-2">
+                  NIB (Nomor Induk Berusaha)
+                </Label>
+                <p className="text-xs text-gray-600 mb-4">
+                  PDF, JPG, atau PNG. Max 5MB.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => document.getElementById('nib')?.click()}
+                  className="gap-2"
+                >
+                  <Upload className="w-4 h-4" />
+                  Pilih File
+                </Button>
+                <input
+                  id="nib"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => handleLegalDocumentUpload(e, 'nib')}
+                  className="hidden"
+                />
+                {uploadedDocuments.nib && (
+                  <p className="text-xs text-green-600 mt-2">✓ {uploadedDocuments.nib}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className={cn('border rounded-lg p-4', isDocumentsComplete 
+            ? 'bg-green-100 border-green-300' 
+            : 'bg-amber-100 border-amber-300')}>
+            <p className={cn('text-sm', isDocumentsComplete 
+              ? 'text-green-900' 
+              : 'text-amber-900')}>
+              <strong>{isDocumentsComplete ? '✓ Dokumen Lengkap: ' : 'Perhatian: '}</strong>
+              {isDocumentsComplete 
+                ? 'Semua dokumen telah diunggah dan diverifikasi. Anda sekarang dapat membuat lowongan kerja.'
+                : 'Anda perlu melengkapi semua dokumen legalitas untuk dapat membuat lowongan kerja. Dokumen ini hanya untuk verifikasi super admin dan tidak akan dipublikasikan. Hal ini dilakukan untuk memastikan keabsahan informasi loker yang Anda unggah dan melindungi calon karyawan dari penyalahgunaan data.'}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
+
+

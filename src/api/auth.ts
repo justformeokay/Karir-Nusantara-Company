@@ -25,15 +25,15 @@ function mapBackendUserToCompany(data: any): Company {
     company_location: data.company_location,
     is_active: data.is_active,
     is_verified: data.is_verified,
-    // Map is_verified boolean to verification_status
-    verification_status: data.is_verified ? 'verified' : 'pending',
+    // Map company_status from backend (priority) or fallback to is_verified
+    verification_status: data.company_status || (data.is_verified ? 'verified' : 'pending'),
     created_at: data.created_at,
   }
 }
 
 export const authApi = {
   login: async (credentials: LoginCredentials): Promise<ApiResponse<AuthResponse>> => {
-    const response = await api.post('/auth/login', credentials)
+    const response = await api.post<ApiResponse<AuthResponse>>('/auth/login', credentials)
     if (response.success && response.data?.user) {
       response.data.user = mapBackendUserToCompany(response.data.user)
     }
@@ -41,7 +41,7 @@ export const authApi = {
   },
 
   register: async (data: RegisterData): Promise<ApiResponse<AuthResponse>> => {
-    const response = await api.post('/auth/register', {
+    const response = await api.post<ApiResponse<AuthResponse>>('/auth/register', {
       ...data,
       role: 'company', // Always register as company
     })
@@ -56,7 +56,7 @@ export const authApi = {
   },
 
   refreshToken: async (refreshToken: string): Promise<ApiResponse<AuthResponse>> => {
-    const response = await api.post('/auth/refresh', { refresh_token: refreshToken })
+    const response = await api.post<ApiResponse<AuthResponse>>('/auth/refresh', { refresh_token: refreshToken })
     if (response.success && response.data?.user) {
       response.data.user = mapBackendUserToCompany(response.data.user)
     }
@@ -64,11 +64,15 @@ export const authApi = {
   },
 
   getProfile: async (): Promise<ApiResponse<Company>> => {
-    const response = await api.get('/auth/me')
-    if (response.success && response.data) {
-      response.data = mapBackendUserToCompany(response.data)
+    const response = await api.get<ApiResponse<any>>('/auth/me')
+    if (response && typeof response === 'object' && 'success' in response && response.success && 'data' in response && response.data) {
+      const mappedData = mapBackendUserToCompany(response.data)
+      return {
+        success: true,
+        data: mappedData,
+      } as ApiResponse<Company>
     }
-    return response
+    return response as unknown as ApiResponse<Company>
   },
 
   // Note: Profile update endpoint to be added to backend

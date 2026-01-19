@@ -52,6 +52,7 @@ import {
   Pause,
   Play,
   FileText,
+  AlertCircle,
 } from 'lucide-react'
 import { formatDateShort } from '@/lib/utils'
 import type { JobStatus } from '@/types'
@@ -79,10 +80,14 @@ export default function JobsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [deleteJobId, setDeleteJobId] = useState<number | null>(null)
 
-  // Fetch jobs
+  // Check if legal documents are complete
+  // For now, we'll use a simplified check - you can enhance this based on backend response
+  const documentsComplete = localStorage.getItem('company_documents_complete') === 'true'
+
+  // Fetch company's jobs
   const { data: jobsData, isLoading } = useQuery({
-    queryKey: ['jobs', { search, status: statusFilter }],
-    queryFn: () => jobsApi.getAll({
+    queryKey: ['company-jobs', { search, status: statusFilter }],
+    queryFn: () => jobsApi.getCompanyJobs({
       search: search || undefined,
       status: statusFilter !== 'all' ? statusFilter as JobStatus : undefined,
     }),
@@ -92,7 +97,7 @@ export default function JobsPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => jobsApi.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['jobs'] })
+      queryClient.invalidateQueries({ queryKey: ['company-jobs'] })
       toast.success('Lowongan dihapus', {
         description: 'Lowongan berhasil dihapus.',
       })
@@ -137,6 +142,30 @@ export default function JobsPage() {
 
   return (
     <div className="space-y-6" data-testid="jobs-page">
+      {/* Warning Banner - Documents Incomplete */}
+      {isVerified && !documentsComplete && (
+        <Card className="border-amber-200 bg-amber-50 border-2">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <AlertCircle className="w-5 h-5 text-amber-700 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-amber-900 mb-1">
+                  Dokumen Legalitas Belum Lengkap
+                </h3>
+                <p className="text-sm text-amber-800 mb-4">
+                  Anda perlu melengkapi semua dokumen legalitas perusahaan sebelum dapat membuat lowongan kerja. Ini untuk memastikan keabsahan informasi dan melindungi calon karyawan.
+                </p>
+                <Link to="/dashboard/company-profile">
+                  <Button size="sm" variant="outline" className="text-amber-700 border-amber-300 hover:bg-amber-100">
+                    Lengkapi Dokumen Sekarang
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
@@ -146,8 +175,13 @@ export default function JobsPage() {
           </p>
         </div>
         {isVerified && (
-          <Link to="/jobs/new">
-            <Button className="gap-2" data-testid="create-job-button">
+          <Link to={documentsComplete ? "/dashboard/jobs/create" : "#"} onClick={(e) => !documentsComplete && e.preventDefault()}>
+            <Button 
+              className="gap-2" 
+              data-testid="create-job-button"
+              disabled={!documentsComplete}
+              title={!documentsComplete ? "Lengkapi dokumen legalitas untuk membuat lowongan" : ""}
+            >
               <Plus className="w-4 h-4" />
               Buat Lowongan Baru
             </Button>
