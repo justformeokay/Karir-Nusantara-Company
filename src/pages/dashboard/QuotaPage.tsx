@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
-import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog,
@@ -24,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Label } from '@/components/ui/label'
 import {
   CreditCard,
   Upload,
@@ -32,11 +32,14 @@ import {
   Clock,
   XCircle,
   Copy,
-  Image,
   Loader2,
+  Gift,
+  Sparkles,
+  Image,
 } from 'lucide-react'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import { quotaApi } from '@/api/quota'
+import type { TopUpPackage } from '@/api/quota'
 import type { PaymentStatus } from '@/types'
 
 const statusConfig: Record<PaymentStatus, { label: string; icon: React.ElementType; color: string }> = {
@@ -48,6 +51,7 @@ const statusConfig: Record<PaymentStatus, { label: string; icon: React.ElementTy
 export default function QuotaPage() {
   const queryClient = useQueryClient()
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
+  const [selectedPackage, setSelectedPackage] = useState<TopUpPackage | null>(null)
   const [proofFile, setProofFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -57,7 +61,7 @@ export default function QuotaPage() {
     queryFn: quotaApi.getQuota,
   })
 
-  // Fetch payment info
+  // Fetch payment info (includes packages)
   const { data: paymentInfoData, isLoading: isLoadingPaymentInfo } = useQuery({
     queryKey: ['payment-info'],
     queryFn: quotaApi.getPaymentInfo,
@@ -71,13 +75,15 @@ export default function QuotaPage() {
 
   // Upload mutation
   const uploadMutation = useMutation({
-    mutationFn: (file: File) => quotaApi.submitPaymentProof(file),
+    mutationFn: ({ file, packageId }: { file: File; packageId?: string }) => 
+      quotaApi.submitPaymentProof(file, { packageId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] })
       queryClient.invalidateQueries({ queryKey: ['quota'] })
       toast.success('Bukti pembayaran berhasil diunggah!')
       setShowPaymentDialog(false)
       setProofFile(null)
+      setSelectedPackage(null)
     },
     onError: () => {
       toast.error('Gagal mengunggah bukti pembayaran')
@@ -87,6 +93,7 @@ export default function QuotaPage() {
   const quota = quotaData?.data
   const paymentInfo = paymentInfoData?.data
   const payments = paymentsData?.data || []
+  const packages = paymentInfo?.packages || []
 
   const quotaPercentage = quota ? (quota.used_free_quota / quota.free_quota) * 100 : 0
 
@@ -95,6 +102,11 @@ export default function QuotaPage() {
       navigator.clipboard.writeText(paymentInfo.account_number)
       toast.success('Nomor rekening berhasil disalin!')
     }
+  }
+
+  const handleSelectPackage = (pkg: TopUpPackage) => {
+    setSelectedPackage(pkg)
+    setShowPaymentDialog(true)
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,7 +125,7 @@ export default function QuotaPage() {
       toast.error('Pilih file bukti pembayaran')
       return
     }
-    uploadMutation.mutate(proofFile)
+    uploadMutation.mutate({ file: proofFile, packageId: selectedPackage?.id })
   }
 
   return (
@@ -267,13 +279,75 @@ export default function QuotaPage() {
                 </div>
               </div>
             )}
-            <Button className="w-full" onClick={() => setShowPaymentDialog(true)} data-testid="submit-payment-button">
-              <Upload className="w-4 h-4 mr-2" />
-              Upload Bukti Pembayaran
-            </Button>
           </CardContent>
         </Card>
       </div>
+
+      {/* Top-Up Packages */}
+      <Card data-testid="topup-packages">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            Paket Top-Up Kuota
+          </CardTitle>
+          <CardDescription>
+            Pilih paket yang sesuai dengan kebutuhan Anda
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingPaymentInfo ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-48 w-full rounded-lg" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {packages.map((pkg) => (
+                <Card
+                  key={pkg.id}
+                  className={cn(
+                    "relative cursor-pointer transition-all hover:shadow-md",
+                    pkg.is_best_value && "border-2 border-primary ring-2 ring-primary/20"
+                  )}
+                  onClick={() => handleSelectPackage(pkg)}
+                >
+                  {pkg.is_best_value && (
+                    <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-primary">
+                      <Gift className="w-3 h-3 mr-1" />
+                      Best Value
+                    </Badge>
+                  )}
+                  <CardContent className="pt-6 text-center">
+                    <h3 className="font-bold text-lg">{pkg.name}</h3>
+                    <p className="text-3xl font-bold text-primary mt-2">
+                      {formatCurrency(pkg.price)}
+                    </p>
+                    {pkg.bonus_quota > 0 && (
+                      <Badge variant="secondary" className="mt-2 bg-green-100 text-green-700">
+                        <Gift className="w-3 h-3 mr-1" />
+                        +{pkg.bonus_quota} Gratis!
+                      </Badge>
+                    )}
+                    <p className="text-sm text-gray-500 mt-2">
+                      {pkg.description}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {formatCurrency(pkg.price_per_job)}/lowongan
+                    </p>
+                    <Button 
+                      className="w-full mt-4" 
+                      variant={pkg.is_best_value ? "default" : "outline"}
+                    >
+                      Pilih Paket
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Payment History */}
       <Card data-testid="payment-history">
@@ -350,7 +424,13 @@ export default function QuotaPage() {
       </Card>
 
       {/* Upload Payment Proof Dialog */}
-      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+      <Dialog open={showPaymentDialog} onOpenChange={(open) => {
+        setShowPaymentDialog(open)
+        if (!open) {
+          setSelectedPackage(null)
+          setProofFile(null)
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Upload Bukti Pembayaran</DialogTitle>
@@ -359,9 +439,35 @@ export default function QuotaPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Selected Package Info */}
+            {selectedPackage && (
+              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h4 className="font-semibold">{selectedPackage.name}</h4>
+                    <p className="text-sm text-gray-500">{selectedPackage.description}</p>
+                    {selectedPackage.bonus_quota > 0 && (
+                      <Badge variant="secondary" className="mt-1 bg-green-100 text-green-700">
+                        <Gift className="w-3 h-3 mr-1" />
+                        +{selectedPackage.bonus_quota} Gratis!
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-primary">
+                      {formatCurrency(selectedPackage.price)}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Total: {selectedPackage.total_quota} lowongan
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="p-4 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-800">
-                <strong>Penting:</strong> Pastikan Anda sudah transfer ke rekening yang tertera 
+                <strong>Penting:</strong> Pastikan Anda sudah transfer {selectedPackage ? formatCurrency(selectedPackage.price) : ''} ke rekening yang tertera 
                 sebelum mengupload bukti pembayaran.
               </p>
             </div>
@@ -417,7 +523,7 @@ export default function QuotaPage() {
             <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
               Batal
             </Button>
-            <Button onClick={handleUploadProof} disabled={!proofFile || uploadMutation.isPending}>
+            <Button onClick={handleUploadProof} disabled={!proofFile || !selectedPackage || uploadMutation.isPending}>
               {uploadMutation.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
