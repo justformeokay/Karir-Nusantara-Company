@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
@@ -9,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
   SelectContent,
@@ -29,23 +31,29 @@ import {
 import { ArrowLeft, Loader2, Save, Send, AlertCircle, CheckCircle } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { useCompanyEligibility } from '@/hooks/useCompanyEligibility'
-import { Company } from '@/types'
+import { jobsApi } from '@/api'
+import { useAuthStore } from '@/stores/authStore'
+import type { JobFormData } from '@/types'
 
 const jobFormSchema = z.object({
   title: z.string().min(5, 'Judul minimal 5 karakter'),
   category: z.string().min(1, 'Pilih kategori'),
-  employmentType: z.string().min(1, 'Pilih tipe pekerjaan'),
-  workLocation: z.string().min(1, 'Pilih lokasi kerja'),
-  city: z.string().min(2, 'Masukkan kota'),
+  employment_type: z.string().min(1, 'Pilih tipe pekerjaan'),
+  work_type: z.string().min(1, 'Pilih lokasi kerja'),
+  location: z.string().min(2, 'Masukkan lokasi'),
   description: z.string().min(50, 'Deskripsi minimal 50 karakter'),
   requirements: z.string().min(30, 'Persyaratan minimal 30 karakter'),
-  salaryMin: z.string().optional(),
-  salaryMax: z.string().optional(),
-  salaryHidden: z.boolean().default(false),
-  applicationDeadline: z.string().optional(),
+  experience_level: z.string().min(1, 'Pilih level pengalaman'),
+  salary_min: z.number().optional().or(z.nan()).transform(val => val === undefined || Number.isNaN(val) ? undefined : val),
+  salary_max: z.number().optional().or(z.nan()).transform(val => val === undefined || Number.isNaN(val) ? undefined : val),
+  salary_visible: z.boolean().default(true),
+  salary_currency: z.string().default('IDR'),
+  skills: z.array(z.string()).default([]),
+  responsibilities: z.string().optional(),
+  benefits: z.string().optional(),
+  application_email: z.string().email('Email tidak valid').optional().or(z.literal('')),
+  expires_at: z.string().optional(),
 })
-
-type JobFormData = z.infer<typeof jobFormSchema>
 
 const categories = [
   'Engineering',
@@ -75,6 +83,15 @@ const workLocations = [
   { value: 'hybrid', label: 'Hybrid' },
 ]
 
+const experienceLevels = [
+  { value: 'entry', label: 'Entry Level' },
+  { value: 'junior', label: 'Junior (1-2 tahun)' },
+  { value: 'mid', label: 'Mid Level (3-5 tahun)' },
+  { value: 'senior', label: 'Senior (5+ tahun)' },
+  { value: 'lead', label: 'Lead / Manager' },
+  { value: 'executive', label: 'Executive' },
+]
+
 // Mock quota data
 const mockQuota = {
   remainingFreeQuota: 2,
@@ -86,39 +103,40 @@ export default function JobFormPage() {
   const { id } = useParams()
   const isEdit = !!id
   const { canCreateJobs } = useCompanyEligibility()
+  const { company } = useAuthStore()
+  const queryClient = useQueryClient()
 
   const [isLoading, setIsLoading] = useState(false)
   const [isSavingDraft, setIsSavingDraft] = useState(false)
   const [showPublishDialog, setShowPublishDialog] = useState(false)
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
+  const [formData, setFormData] = useState<JobFormData | null>(null)
   const [eligibilityError, setEligibilityError] = useState<{ code: string; message: string; details?: string } | null>(null)
-  const [company, setCompany] = useState<Company | undefined>(undefined)
   const [showBlockDialog, setShowBlockDialog] = useState(false)
 
   const needsPayment = mockQuota.remainingFreeQuota <= 0
 
-  // Load company data from localStorage (should come from auth)
+  // Fetch job data when editing
+  const { data: jobData, isLoading: isLoadingJob } = useQuery({
+    queryKey: ['job', id],
+    queryFn: () => jobsApi.getById(id!),
+    enabled: isEdit,
+  })
+
+  // Check company eligibility when company data changes
   useEffect(() => {
-    try {
-      const userStr = localStorage.getItem('user')
-      if (userStr) {
-        const userData = JSON.parse(userStr)
-        setCompany(userData)
-        
-        // Check eligibility
-        const { canCreate, error } = canCreateJobs(userData)
-        if (!canCreate) {
-          setEligibilityError(error)
-          setShowBlockDialog(true) // Show blocking dialog
-        } else {
-          setEligibilityError(null)
-          setShowBlockDialog(false)
-        }
+    if (company) {
+      // Check eligibility
+      const { canCreate, error } = canCreateJobs(company)
+      if (!canCreate) {
+        setEligibilityError(error)
+        setShowBlockDialog(true) // Show blocking dialog
+      } else {
+        setEligibilityError(null)
+        setShowBlockDialog(false)
       }
-    } catch (error) {
-      console.error('Failed to load company data:', error)
     }
-  }, [canCreateJobs])
+  }, [company, canCreateJobs])
 
   const {
     register,
@@ -129,11 +147,56 @@ export default function JobFormPage() {
   } = useForm<JobFormData>({
     resolver: zodResolver(jobFormSchema),
     defaultValues: {
-      salaryHidden: false,
+      title: '',
+      category: '',
+      employment_type: '' as any,
+      work_type: '' as any,
+      location: '',
+      description: '',
+      requirements: '',
+      experience_level: '',
+      salary_visible: true,
+      salary_currency: 'IDR',
+      skills: [],
     },
   })
 
-  const salaryHidden = watch('salaryHidden')
+  const salaryVisible = watch('salary_visible')
+  const watchedCategory = watch('category')
+  const watchedEmploymentType = watch('employment_type')
+  const watchedWorkType = watch('work_type')
+  const watchedExperienceLevel = watch('experience_level')
+
+  // Pre-fill form data when editing
+  useEffect(() => {
+    if (isEdit && jobData?.data) {
+      const job = jobData.data
+      setValue('title', job.title || '')
+      setValue('description', job.description || '')
+      setValue('requirements', job.requirements || '')
+      setValue('location', job.location || '')
+      setValue('salary_min', job.salary_min || 0)
+      setValue('salary_max', job.salary_max || 0)
+      setValue('salary_currency', job.salary_currency || 'IDR')
+      setValue('salary_visible', job.salary_visible ?? true)
+      setValue('category', job.category || '')
+      setValue('employment_type', job.employment_type || '')
+      setValue('work_type', job.work_type || '')
+      setValue('experience_level', job.experience_level || '')
+      setValue('skills', job.skills || [])
+    }
+  }, [isEdit, jobData, setValue])
+
+  // Handle form validation errors
+  const onFormError = (errors: any) => {
+    console.error('Form validation errors:', errors)
+    const firstError = Object.values(errors)[0] as any
+    if (firstError?.message) {
+      toast.error(firstError.message)
+    } else {
+      toast.error('Mohon lengkapi semua field yang wajib diisi')
+    }
+  }
 
   const onSaveDraft = async (_data: JobFormData) => {
     setIsSavingDraft(true)
@@ -148,9 +211,9 @@ export default function JobFormPage() {
     }
   }
 
-  const onPublish = async (_data: JobFormData) => {
+  const onPublish = async (data: JobFormData) => {
     // Check eligibility before allowing publish
-    const { canCreate, error } = canCreateJobs(company)
+    const { canCreate, error } = canCreateJobs(company ?? undefined)
     if (!canCreate) {
       toast.error(error?.message || 'Anda tidak bisa membuat lowongan')
       return
@@ -160,6 +223,9 @@ export default function JobFormPage() {
       setShowPaymentDialog(true)
       return
     }
+    
+    // Store form data for confirmation
+    setFormData(data)
     setShowPublishDialog(true)
   }
 
@@ -167,11 +233,31 @@ export default function JobFormPage() {
     setIsLoading(true)
     setShowPublishDialog(false)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-      toast.success('Lowongan berhasil dipublikasikan!')
-      navigate('/jobs')
-    } catch (error) {
-      toast.error('Gagal mempublikasikan lowongan')
+      // Validate formData exists
+      if (!formData) {
+        throw new Error('Form data tidak ditemukan')
+      }
+      
+      let response
+      if (isEdit && id) {
+        // Update existing job
+        response = await jobsApi.update(id, formData)
+      } else {
+        // Create new job
+        response = await jobsApi.create(formData)
+      }
+      
+      if (response.success) {
+        // Invalidate jobs cache so list refreshes
+        queryClient.invalidateQueries({ queryKey: ['company-jobs'] })
+        toast.success(isEdit ? 'Lowongan berhasil diperbarui!' : 'Lowongan berhasil dipublikasikan!')
+        navigate('/jobs')
+      } else {
+        toast.error(response.error?.message || (isEdit ? 'Gagal memperbarui lowongan' : 'Gagal mempublikasikan lowongan'))
+      }
+    } catch (error: any) {
+      console.error('Job operation error:', error)
+      toast.error(error?.message || (isEdit ? 'Gagal memperbarui lowongan' : 'Gagal mempublikasikan lowongan'))
     } finally {
       setIsLoading(false)
     }
@@ -268,7 +354,18 @@ export default function JobFormPage() {
       {/* Only show form if eligible */}
       {!showBlockDialog && (
         <>
+          {/* Loading state for edit mode */}
+          {isEdit && isLoadingJob && (
+            <div className="space-y-4">
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          )}
+
           {/* Header */}
+          {(!isEdit || !isLoadingJob) && (
           <div className="flex items-center gap-4">
             <Link to="/jobs">
               <Button variant="ghost" size="icon">
@@ -286,6 +383,7 @@ export default function JobFormPage() {
               </p>
             </div>
           </div>
+          )}
 
           {/* Eligibility Status */}
       {eligibilityError ? (
@@ -345,7 +443,7 @@ export default function JobFormPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Kategori *</Label>
-                <Select onValueChange={(value) => setValue('category', value)}>
+                <Select value={watchedCategory} onValueChange={(value) => setValue('category', value)}>
                   <SelectTrigger className={errors.category ? 'border-red-500' : ''} data-testid="job-category-select">
                     <SelectValue placeholder="Pilih kategori" />
                   </SelectTrigger>
@@ -364,8 +462,8 @@ export default function JobFormPage() {
 
               <div className="space-y-2">
                 <Label>Tipe Pekerjaan *</Label>
-                <Select onValueChange={(value) => setValue('employmentType', value)}>
-                  <SelectTrigger className={errors.employmentType ? 'border-red-500' : ''} data-testid="job-type-select">
+                <Select value={watchedEmploymentType} onValueChange={(value) => setValue('employment_type', value as any)}>
+                  <SelectTrigger className={errors.employment_type ? 'border-red-500' : ''} data-testid="job-type-select">
                     <SelectValue placeholder="Pilih tipe" />
                   </SelectTrigger>
                   <SelectContent>
@@ -376,8 +474,8 @@ export default function JobFormPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.employmentType && (
-                  <p className="text-sm text-red-500">{errors.employmentType.message}</p>
+                {errors.employment_type && (
+                  <p className="text-sm text-red-500">{errors.employment_type.message}</p>
                 )}
               </div>
             </div>
@@ -385,8 +483,8 @@ export default function JobFormPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Lokasi Kerja *</Label>
-                <Select onValueChange={(value) => setValue('workLocation', value)}>
-                  <SelectTrigger className={errors.workLocation ? 'border-red-500' : ''}>
+                <Select value={watchedWorkType} onValueChange={(value) => setValue('work_type', value as any)}>
+                  <SelectTrigger className={errors.work_type ? 'border-red-500' : ''}>
                     <SelectValue placeholder="Pilih lokasi" />
                   </SelectTrigger>
                   <SelectContent>
@@ -397,23 +495,42 @@ export default function JobFormPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.workLocation && (
-                  <p className="text-sm text-red-500">{errors.workLocation.message}</p>
+                {errors.work_type && (
+                  <p className="text-sm text-red-500">{errors.work_type.message}</p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="city">Kota *</Label>
+                <Label htmlFor="location">Lokasi *</Label>
                 <Input
-                  id="city"
-                  placeholder="contoh: Jakarta"
-                  {...register('city')}
-                  className={errors.city ? 'border-red-500' : ''}
+                  id="location"
+                  placeholder="contoh: Jakarta Selatan, DKI Jakarta"
+                  {...register('location')}
+                  className={errors.location ? 'border-red-500' : ''}
                 />
-                {errors.city && (
-                  <p className="text-sm text-red-500">{errors.city.message}</p>
+                {errors.location && (
+                  <p className="text-sm text-red-500">{errors.location.message}</p>
                 )}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Level Pengalaman *</Label>
+              <Select value={watchedExperienceLevel} onValueChange={(value) => setValue('experience_level', value)}>
+                <SelectTrigger className={errors.experience_level ? 'border-red-500' : ''}>
+                  <SelectValue placeholder="Pilih level pengalaman" />
+                </SelectTrigger>
+                <SelectContent>
+                  {experienceLevels.map((level) => (
+                    <SelectItem key={level.value} value={level.value}>
+                      {level.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.experience_level && (
+                <p className="text-sm text-red-500">{errors.experience_level.message}</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -469,45 +586,45 @@ export default function JobFormPage() {
             <div className="flex items-center gap-2 mb-4">
               <input
                 type="checkbox"
-                id="salaryHidden"
-                {...register('salaryHidden')}
+                id="salary_visible"
+                {...register('salary_visible')}
                 className="w-4 h-4 rounded border-gray-300"
               />
-              <Label htmlFor="salaryHidden" className="font-normal">
-                Sembunyikan informasi gaji
+              <Label htmlFor="salary_visible" className="font-normal">
+                Tampilkan informasi gaji
               </Label>
             </div>
 
-            {!salaryHidden && (
+            {salaryVisible && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="salaryMin">Gaji Minimum (Rp)</Label>
+                  <Label htmlFor="salary_min">Gaji Minimum (Rp)</Label>
                   <Input
-                    id="salaryMin"
+                    id="salary_min"
                     type="number"
                     placeholder="contoh: 8000000"
-                    {...register('salaryMin')}
+                    {...register('salary_min', { valueAsNumber: true })}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="salaryMax">Gaji Maksimum (Rp)</Label>
+                  <Label htmlFor="salary_max">Gaji Maksimum (Rp)</Label>
                   <Input
-                    id="salaryMax"
+                    id="salary_max"
                     type="number"
                     placeholder="contoh: 12000000"
-                    {...register('salaryMax')}
+                    {...register('salary_max', { valueAsNumber: true })}
                   />
                 </div>
               </div>
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="applicationDeadline">Batas Waktu Lamaran</Label>
+              <Label htmlFor="expires_at">Batas Waktu Lamaran</Label>
               <Input
-                id="applicationDeadline"
+                id="expires_at"
                 type="date"
-                {...register('applicationDeadline')}
+                {...register('expires_at')}
               />
               <p className="text-sm text-gray-500">
                 Kosongkan jika tidak ada batas waktu
@@ -526,7 +643,7 @@ export default function JobFormPage() {
               variant="outline"
               type="button"
               disabled={isSavingDraft || !!eligibilityError}
-              onClick={handleSubmit(onSaveDraft)}
+              onClick={handleSubmit(onSaveDraft, onFormError)}
               className="gap-2"
               data-testid="save-draft-button"
             >
@@ -540,7 +657,7 @@ export default function JobFormPage() {
             <Button
               type="button"
               disabled={isLoading || !!eligibilityError}
-              onClick={handleSubmit(onPublish)}
+              onClick={handleSubmit(onPublish, onFormError)}
               className="gap-2"
               data-testid="publish-button"
             >

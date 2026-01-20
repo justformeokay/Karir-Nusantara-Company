@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,46 +32,8 @@ import {
   Play,
 } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
+import { jobsApi } from '@/api/jobs'
 import type { JobStatus } from '@/types'
-
-// Mock data
-const mockJob = {
-  id: '1',
-  title: 'Frontend Developer',
-  category: 'Engineering',
-  employmentType: 'full_time',
-  workLocation: 'hybrid',
-  city: 'Jakarta',
-  description: `Kami mencari Frontend Developer yang passionate untuk bergabung dengan tim engineering kami. 
-
-Tanggung Jawab:
-• Mengembangkan dan memelihara aplikasi web menggunakan React/Vue
-• Berkolaborasi dengan tim design untuk implementasi UI/UX
-• Menulis code yang clean, maintainable, dan well-tested
-• Melakukan code review dan mentoring junior developer
-• Berpartisipasi dalam sprint planning dan daily standup`,
-  requirements: `Kualifikasi:
-• Minimal 3 tahun pengalaman sebagai Frontend Developer
-• Menguasai React.js atau Vue.js
-• Familiar dengan TypeScript
-• Pengalaman dengan state management (Redux, Vuex, Zustand)
-• Memahami responsive design dan cross-browser compatibility
-• Kemampuan komunikasi yang baik
-
-Nice to have:
-• Pengalaman dengan Next.js atau Nuxt.js
-• Familiar dengan testing (Jest, Cypress)
-• Kontribusi open source`,
-  salaryMin: 12000000,
-  salaryMax: 18000000,
-  salaryHidden: false,
-  applicationDeadline: '2026-02-15',
-  status: 'published' as JobStatus,
-  applicantCount: 45,
-  viewCount: 320,
-  createdAt: '2026-01-10T08:00:00Z',
-  publishedAt: '2026-01-10T10:00:00Z',
-}
 
 const mockApplicants = [
   { id: '1', name: 'Budi Santoso', email: 'budi@email.com', status: 'applied', appliedAt: '2026-01-17' },
@@ -82,6 +47,11 @@ const statusConfig: Record<JobStatus, { label: string; variant: 'default' | 'sec
   paused: { label: 'Dijeda', variant: 'warning' },
   closed: { label: 'Ditutup', variant: 'outline' },
   filled: { label: 'Terisi', variant: 'default' },
+}
+
+// Helper to get status config with fallback
+const getStatusConfig = (status: string) => {
+  return statusConfig[status as JobStatus] || { label: status, variant: 'secondary' as const }
 }
 
 const employmentTypeLabels: Record<string, string> = {
@@ -101,20 +71,107 @@ const workLocationLabels: Record<string, string> = {
 export default function JobDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showCloseDialog, setShowCloseDialog] = useState(false)
 
-  const job = mockJob // Replace with API call
+  // Fetch job data from API
+  const { data: jobData, isLoading, error } = useQuery({
+    queryKey: ['job', id],
+    queryFn: () => jobsApi.getById(id!),
+    enabled: !!id,
+  })
+
+  const job = jobData?.data
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: () => jobsApi.delete(id!),
+    onSuccess: () => {
+      toast.success('Lowongan berhasil dihapus')
+      queryClient.invalidateQueries({ queryKey: ['company-jobs'] })
+      navigate('/jobs')
+    },
+    onError: () => {
+      toast.error('Gagal menghapus lowongan')
+    },
+  })
+
+  // Close/Pause mutation
+  const closeMutation = useMutation({
+    mutationFn: () => jobsApi.close(id!),
+    onSuccess: () => {
+      toast.success('Lowongan berhasil ditutup')
+      queryClient.invalidateQueries({ queryKey: ['job', id] })
+      queryClient.invalidateQueries({ queryKey: ['company-jobs'] })
+      setShowCloseDialog(false)
+    },
+    onError: () => {
+      toast.error('Gagal menutup lowongan')
+    },
+  })
+
+  // Reopen mutation
+  const reopenMutation = useMutation({
+    mutationFn: () => jobsApi.reopen(id!),
+    onSuccess: () => {
+      toast.success('Lowongan berhasil dibuka kembali')
+      queryClient.invalidateQueries({ queryKey: ['job', id] })
+      queryClient.invalidateQueries({ queryKey: ['company-jobs'] })
+      setShowCloseDialog(false)
+    },
+    onError: () => {
+      toast.error('Gagal membuka kembali lowongan')
+    },
+  })
 
   const handleDelete = () => {
-    // API call to delete
-    navigate('/jobs')
+    deleteMutation.mutate()
   }
 
   const handleToggleStatus = () => {
-    // API call to close/reopen
-    setShowCloseDialog(false)
+    if (job?.status === 'active') {
+      closeMutation.mutate()
+    } else {
+      reopenMutation.mutate()
+    }
   }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10" />
+          <div>
+            <Skeleton className="h-8 w-64 mb-2" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+        </div>
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
+  }
+
+  if (error || !job) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Link to="/jobs">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Lowongan tidak ditemukan</h1>
+            <p className="text-gray-600">Lowongan yang Anda cari tidak ada atau sudah dihapus.</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Get location string from job data
+  const jobLocation = job.location || '-'
 
   return (
     <div className="space-y-6">
@@ -129,22 +186,22 @@ export default function JobDetailPage() {
           <div>
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-2xl font-bold text-gray-900">{job.title}</h1>
-              <Badge variant={statusConfig[job.status].variant}>
-                {statusConfig[job.status].label}
+              <Badge variant={getStatusConfig(job.status).variant}>
+                {getStatusConfig(job.status).label}
               </Badge>
             </div>
             <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
               <span className="flex items-center gap-1">
                 <Briefcase className="w-4 h-4" />
-                {job.category}
+                {job.category || job.experience_level || '-'}
               </span>
               <span className="flex items-center gap-1">
                 <MapPin className="w-4 h-4" />
-                {job.city}
+                {jobLocation}
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="w-4 h-4" />
-                {employmentTypeLabels[job.employmentType]}
+                {employmentTypeLabels[job.employment_type] || job.employment_type || '-'}
               </span>
             </div>
           </div>
@@ -183,7 +240,7 @@ export default function JobDetailPage() {
                 <Users className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{job.applicantCount}</p>
+                <p className="text-2xl font-bold">{job.applications_count || 0}</p>
                 <p className="text-sm text-gray-600">Pelamar</p>
               </div>
             </div>
@@ -196,7 +253,7 @@ export default function JobDetailPage() {
                 <Eye className="w-5 h-5 text-purple-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{job.viewCount}</p>
+                <p className="text-2xl font-bold">{job.views_count || 0}</p>
                 <p className="text-sm text-gray-600">Dilihat</p>
               </div>
             </div>
@@ -209,7 +266,7 @@ export default function JobDetailPage() {
                 <Calendar className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{job.publishedAt ? formatDate(job.publishedAt).split(' ')[0] : '-'}</p>
+                <p className="text-2xl font-bold">{job.published_at ? formatDate(job.published_at).split(' ')[0] : '-'}</p>
                 <p className="text-sm text-gray-600">Dipublikasikan</p>
               </div>
             </div>
@@ -222,7 +279,7 @@ export default function JobDetailPage() {
         <TabsList>
           <TabsTrigger value="detail">Detail Lowongan</TabsTrigger>
           <TabsTrigger value="applicants">
-            Pelamar ({job.applicantCount})
+            Pelamar ({job.applications_count || 0})
           </TabsTrigger>
         </TabsList>
 
@@ -262,35 +319,35 @@ export default function JobDetailPage() {
                 <CardContent className="space-y-4">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Lokasi Kerja</span>
-                    <span className="font-medium">{workLocationLabels[job.workLocation]}</span>
+                    <span className="font-medium">{workLocationLabels[job.work_type] || job.work_type || '-'}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between">
                     <span className="text-gray-600">Tipe</span>
-                    <span className="font-medium">{employmentTypeLabels[job.employmentType]}</span>
+                    <span className="font-medium">{employmentTypeLabels[job.employment_type] || job.employment_type || '-'}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between">
                     <span className="text-gray-600">Kategori</span>
-                    <span className="font-medium">{job.category}</span>
+                    <span className="font-medium">{job.category || job.experience_level || '-'}</span>
                   </div>
-                  {!job.salaryHidden && (
+                  {job.salary_visible && (job.salary_min || job.salary_max) && (
                     <>
                       <Separator />
                       <div className="flex justify-between">
                         <span className="text-gray-600">Gaji</span>
                         <span className="font-medium">
-                          {formatCurrency(job.salaryMin!)} - {formatCurrency(job.salaryMax!)}
+                          {formatCurrency(job.salary_min || 0)} - {formatCurrency(job.salary_max || 0)}
                         </span>
                       </div>
                     </>
                   )}
-                  {job.applicationDeadline && (
+                  {job.expires_at && (
                     <>
                       <Separator />
                       <div className="flex justify-between">
                         <span className="text-gray-600">Deadline</span>
-                        <span className="font-medium">{formatDate(job.applicationDeadline)}</span>
+                        <span className="font-medium">{formatDate(job.expires_at)}</span>
                       </div>
                     </>
                   )}

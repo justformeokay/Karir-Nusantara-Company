@@ -121,7 +121,31 @@ export const jobsApi = {
 
   // Create a new job (company only)
   create: async (data: JobFormData): Promise<ApiResponse<Job>> => {
-    const response = await api.post<ApiResponse<any>>('/jobs', data)
+    // Transform frontend data to backend format
+    const backendData = {
+      title: data.title,
+      description: data.description,
+      requirements: data.requirements,
+      responsibilities: data.responsibilities,
+      benefits: data.benefits,
+      // Split location into city and province if contains comma, otherwise use as city
+      city: data.location.includes(',') ? data.location.split(',')[0].trim() : data.location,
+      province: data.location.includes(',') ? data.location.split(',')[1].trim() : data.location,
+      // Map work_type to is_remote
+      is_remote: data.work_type === 'remote',
+      // Map employment_type to job_type
+      job_type: data.employment_type,
+      experience_level: data.experience_level,
+      salary_min: data.salary_min,
+      salary_max: data.salary_max,
+      salary_currency: data.salary_currency || 'IDR',
+      is_salary_visible: data.salary_visible,
+      application_deadline: data.expires_at,
+      skills: data.skills || [],
+      status: 'active', // Publish directly
+    }
+    
+    const response = await api.post<ApiResponse<any>>('/jobs', backendData)
     if (response.data && response.success) {
       return {
         ...response,

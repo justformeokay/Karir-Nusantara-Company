@@ -113,7 +113,7 @@ export default function JobsPage() {
   const closeMutation = useMutation({
     mutationFn: (id: number) => jobsApi.close(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['jobs'] })
+      queryClient.invalidateQueries({ queryKey: ['company-jobs'] })
       toast.success('Lowongan ditutup', {
         description: 'Lowongan berhasil ditutup.',
       })
@@ -124,7 +124,7 @@ export default function JobsPage() {
   const reopenMutation = useMutation({
     mutationFn: (id: number) => jobsApi.reopen(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['jobs'] })
+      queryClient.invalidateQueries({ queryKey: ['company-jobs'] })
       toast.success('Lowongan dibuka kembali', {
         description: 'Lowongan berhasil diaktifkan kembali.',
       })
