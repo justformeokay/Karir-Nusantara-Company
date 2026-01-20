@@ -7,6 +7,19 @@ import type {
   Company 
 } from '@/types'
 
+// Get backend base URL (without /api/v1)
+const BACKEND_BASE_URL = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://localhost:8081'
+
+// Construct full URL for document files
+function getFullDocUrl(docPath: string | null | undefined): string | undefined {
+  if (!docPath) return undefined
+  // If already a full URL, return as is
+  if (docPath.startsWith('http')) return docPath
+  // If relative path starting with /, prepend backend URL
+  if (docPath.startsWith('/')) return `${BACKEND_BASE_URL}${docPath}`
+  return docPath
+}
+
 // Map backend response to frontend Company type
 function mapBackendUserToCompany(data: any): Company {
   return {
@@ -17,7 +30,7 @@ function mapBackendUserToCompany(data: any): Company {
     phone: data.phone,
     avatar_url: data.avatar_url,
     company_name: data.company_name,
-    company_logo_url: data.company_logo_url,
+    company_logo_url: getFullDocUrl(data.company_logo_url),
     company_description: data.company_description,
     company_website: data.company_website,
     company_industry: data.company_industry,
@@ -36,11 +49,11 @@ function mapBackendUserToCompany(data: any): Company {
     // Map company_status from backend (priority) or fallback to is_verified
     verification_status: data.company_status || (data.is_verified ? 'verified' : 'pending'),
     created_at: data.created_at,
-    // Map document URLs
-    ktp_founder_url: data.ktp_founder_url,
-    akta_pendirian_url: data.akta_pendirian_url,
-    npwp_url: data.npwp_url,
-    nib_url: data.nib_url,
+    // Map document URLs - convert to full URLs
+    ktp_founder_url: getFullDocUrl(data.ktp_founder_url),
+    akta_pendirian_url: getFullDocUrl(data.akta_pendirian_url),
+    npwp_url: getFullDocUrl(data.npwp_url),
+    nib_url: getFullDocUrl(data.nib_url),
   }
 }
 

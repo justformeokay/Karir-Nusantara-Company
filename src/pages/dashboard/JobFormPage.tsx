@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -26,8 +26,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { ArrowLeft, Loader2, Save, Send } from 'lucide-react'
+import { ArrowLeft, Loader2, Save, Send, AlertCircle, CheckCircle } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { useCompanyEligibility } from '@/hooks/useCompanyEligibility'
+import { Company } from '@/types'
 
 const jobFormSchema = z.object({
   title: z.string().min(5, 'Judul minimal 5 karakter'),
@@ -83,13 +85,37 @@ export default function JobFormPage() {
   const navigate = useNavigate()
   const { id } = useParams()
   const isEdit = !!id
+  const { canCreateJobs } = useCompanyEligibility()
 
   const [isLoading, setIsLoading] = useState(false)
   const [isSavingDraft, setIsSavingDraft] = useState(false)
   const [showPublishDialog, setShowPublishDialog] = useState(false)
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
+  const [eligibilityError, setEligibilityError] = useState<{ code: string; message: string; details?: string } | null>(null)
+  const [company, setCompany] = useState<Company | undefined>(undefined)
 
   const needsPayment = mockQuota.remainingFreeQuota <= 0
+
+  // Load company data from localStorage (should come from auth)
+  useEffect(() => {
+    try {
+      const userStr = localStorage.getItem('user')
+      if (userStr) {
+        const userData = JSON.parse(userStr)
+        setCompany(userData)
+        
+        // Check eligibility
+        const { canCreate, error } = canCreateJobs(userData)
+        if (!canCreate) {
+          setEligibilityError(error)
+        } else {
+          setEligibilityError(null)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load company data:', error)
+    }
+  }, [canCreateJobs])
 
   const {
     register,
@@ -120,6 +146,13 @@ export default function JobFormPage() {
   }
 
   const onPublish = async (_data: JobFormData) => {
+    // Check eligibility before allowing publish
+    const { canCreate, error } = canCreateJobs(company)
+    if (!canCreate) {
+      toast.error(error?.message || 'Anda tidak bisa membuat lowongan')
+      return
+    }
+
     if (needsPayment) {
       setShowPaymentDialog(true)
       return
@@ -168,9 +201,39 @@ export default function JobFormPage() {
         </div>
       </div>
 
+      {/* Eligibility Status */}
+      {eligibilityError ? (
+        <div className="p-4 border border-red-200 bg-red-50 rounded-lg space-y-3">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <h3 className="font-semibold text-red-900">{eligibilityError.message}</h3>
+              {eligibilityError.details && (
+                <p className="text-sm text-red-700 mt-1">{eligibilityError.details}</p>
+              )}
+            </div>
+          </div>
+          <Link to="/profile">
+            <Button variant="outline" size="sm" className="border-red-300 hover:bg-red-50">
+              Ke Profil Perusahaan
+            </Button>
+          </Link>
+        </div>
+      ) : (
+        <div className="p-4 border border-green-200 bg-green-50 rounded-lg flex items-start gap-3">
+          <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <h3 className="font-semibold text-green-900">Siap Membuat Lowongan</h3>
+            <p className="text-sm text-green-700 mt-1">
+              Profil perusahaan Anda sudah lengkap dan telah diverifikasi oleh admin.
+            </p>
+          </div>
+        </div>
+      )}
+
       <form className="space-y-6" data-testid="job-form">
         {/* Basic Information */}
-        <Card>
+        <Card className={eligibilityError ? 'opacity-50 pointer-events-none' : ''}>
           <CardHeader>
             <CardTitle>Informasi Dasar</CardTitle>
             <CardDescription>
@@ -186,6 +249,7 @@ export default function JobFormPage() {
                 {...register('title')}
                 className={errors.title ? 'border-red-500' : ''}
                 data-testid="job-title-input"
+                disabled={!!eligibilityError}
               />
               {errors.title && (
                 <p className="text-sm text-red-500">{errors.title.message}</p>
@@ -375,7 +439,7 @@ export default function JobFormPage() {
             <Button
               variant="outline"
               type="button"
-              disabled={isSavingDraft}
+              disabled={isSavingDraft || !!eligibilityError}
               onClick={handleSubmit(onSaveDraft)}
               className="gap-2"
               data-testid="save-draft-button"
@@ -389,7 +453,7 @@ export default function JobFormPage() {
             </Button>
             <Button
               type="button"
-              disabled={isLoading}
+              disabled={isLoading || !!eligibilityError}
               onClick={handleSubmit(onPublish)}
               className="gap-2"
               data-testid="publish-button"
