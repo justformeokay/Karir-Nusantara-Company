@@ -37,12 +37,27 @@ import { authApi } from '@/api/auth'
 import type { CompanyStatus } from '@/types'
 
 const profileSchema = z.object({
+  // Basic information
   name: z.string().min(2, 'Nama perusahaan minimal 2 karakter'),
-  industry: z.string().min(1, 'Industri wajib dipilih'),
-  size: z.string().min(1, 'Ukuran perusahaan wajib dipilih'),
-  location: z.string().min(5, 'Lokasi minimal 5 karakter'),
-  website: z.string().url('Format URL tidak valid').optional().or(z.literal('')),
   description: z.string().min(50, 'Deskripsi minimal 50 karakter'),
+  website: z.string().url('Format URL tidak valid').optional().or(z.literal('')),
+  
+  // Company details
+  industry: z.string().optional(),
+  size: z.string().optional(),
+  established_year: z.string().optional(),
+  employee_count: z.string().optional(),
+  
+  // Contact information
+  phone: z.string().optional(),
+  email: z.string().email('Format email tidak valid').optional().or(z.literal('')),
+  
+  // Address information
+  address: z.string().optional(),
+  city: z.string().optional(),
+  province: z.string().optional(),
+  postal_code: z.string().optional(),
+  location: z.string().optional(),
 })
 
 type ProfileFormData = z.infer<typeof profileSchema>
@@ -141,6 +156,14 @@ export default function CompanyProfilePage() {
     company_location: 'Jakarta Selatan, DKI Jakarta',
     company_website: 'https://teknologinusantara.com',
     company_description: 'PT Teknologi Nusantara adalah perusahaan teknologi yang berfokus pada pengembangan solusi digital untuk bisnis di Indonesia.',
+    company_phone: '+62-21-123456',
+    company_email: 'info@teknologinusantara.com',
+    company_address: 'Jl. Merdeka No. 123',
+    company_city: 'Jakarta',
+    company_province: 'DKI Jakarta',
+    company_postal_code: '12345',
+    established_year: 2015,
+    employee_count: 150,
     verification_status: 'verified' as CompanyStatus,
     is_active: true,
     is_verified: true,
@@ -154,16 +177,25 @@ export default function CompanyProfilePage() {
     handleSubmit,
     formState: { errors },
     setValue,
+    reset,
     watch,
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       name: companyData.company_name || '',
+      description: companyData.company_description || '',
+      website: companyData.company_website || '',
       industry: companyData.company_industry || '',
       size: companyData.company_size || '',
+      established_year: companyData.established_year?.toString() || '',
+      employee_count: companyData.employee_count?.toString() || '',
+      phone: companyData.company_phone || '',
+      email: companyData.company_email || '',
+      address: companyData.company_address || '',
+      city: companyData.company_city || '',
+      province: companyData.company_province || '',
+      postal_code: companyData.company_postal_code || '',
       location: companyData.company_location || '',
-      website: companyData.company_website || '',
-      description: companyData.company_description || '',
     },
   })
 
@@ -179,32 +211,121 @@ export default function CompanyProfilePage() {
         setLogoPreview(reader.result as string)
       }
       reader.readAsDataURL(file)
+      
+      // Upload logo immediately
+      uploadLogo(file)
     }
   }
+
+  const uploadLogo = async (file: File) => {
+    try {
+      const response = await authApi.uploadLogo(file)
+      if (response.success && response.data) {
+        updateCompany(response.data)
+        queryClient.invalidateQueries({ queryKey: ['profile'] })
+        queryClient.invalidateQueries({ queryKey: ['auth', 'me'] })
+        toast.success('Logo perusahaan berhasil diunggah!')
+      } else {
+        toast.error('Gagal mengunggah logo')
+      }
+    } catch (error) {
+      toast.error('Gagal mengunggah logo')
+      console.error(error)
+    }
+  }
+
+  // Sync form with company data when it updates
+  useEffect(() => {
+    if (company) {
+      console.log('Syncing form with company data:', company)
+      setValue('name', company.company_name || '')
+      setValue('description', company.company_description || '')
+      setValue('website', company.company_website || '')
+      setValue('industry', company.company_industry || '')
+      setValue('size', company.company_size || '')
+      setValue('location', company.company_location || '')
+      setValue('established_year', company.established_year?.toString() || '')
+      setValue('employee_count', company.employee_count?.toString() || '')
+      setValue('phone', company.company_phone || '')
+      setValue('email', company.company_email || '')
+      setValue('address', company.company_address || '')
+      setValue('city', company.company_city || '')
+      setValue('province', company.company_province || '')
+      setValue('postal_code', company.company_postal_code || '')
+      
+      // Load uploaded documents from company data
+      const docs: { [key: string]: string } = {}
+      if (company.ktp_founder_url) {
+        docs.ktp_founder = company.ktp_founder_url.split('/').pop() || 'KTP Pendiri'
+      }
+      if (company.akta_pendirian_url) {
+        docs.akta_pendirian = company.akta_pendirian_url.split('/').pop() || 'Akta Pendirian'
+      }
+      if (company.npwp_url) {
+        docs.npwp = company.npwp_url.split('/').pop() || 'NPWP'
+      }
+      if (company.nib_url) {
+        docs.nib = company.nib_url.split('/').pop() || 'NIB'
+      }
+      if (Object.keys(docs).length > 0) {
+        setUploadedDocuments(docs)
+      }
+
+      // Set logo preview if exists
+      if (company.company_logo_url) {
+        setLogoPreview(company.company_logo_url)
+      }
+    }
+  }, [company, setValue])
 
   const onSubmit = async (data: ProfileFormData) => {
     setIsLoading(true)
     try {
-      // Call API to update profile
-      const updateData = {
+      const updateData: any = {
         company_name: data.name,
+        company_description: data.description,
+        company_website: data.website,
         company_industry: data.industry,
         company_size: data.size,
         company_location: data.location,
-        company_website: data.website,
-        company_description: data.description,
+        company_phone: data.phone,
+        company_email: data.email,
+        company_address: data.address,
+        company_city: data.city,
+        company_province: data.province,
+        company_postal_code: data.postal_code,
+        established_year: data.established_year ? parseInt(data.established_year) : null,
+        employee_count: data.employee_count ? parseInt(data.employee_count) : null,
       }
 
+      console.log('Submitting profile update:', updateData)
       const response = await authApi.updateProfile(updateData)
       
-      if (response.success) {
-        // Update local store
-        updateCompany({
-          ...company,
-          ...response.data,
+      console.log('Profile update response:', response)
+      
+      if (response.success && response.data) {
+        // Update local store with response data
+        updateCompany(response.data)
+        
+        // Reset form with new values
+        reset({
+          name: response.data.company_name || '',
+          description: response.data.company_description || '',
+          website: response.data.company_website || '',
+          industry: response.data.company_industry || '',
+          size: response.data.company_size || '',
+          location: response.data.company_location || '',
+          established_year: response.data.established_year?.toString() || '',
+          employee_count: response.data.employee_count?.toString() || '',
+          phone: response.data.company_phone || '',
+          email: response.data.company_email || '',
+          address: response.data.company_address || '',
+          city: response.data.company_city || '',
+          province: response.data.company_province || '',
+          postal_code: response.data.company_postal_code || '',
         })
         
-        // Invalidate cache
+        // Invalidate cache to refresh data
         queryClient.invalidateQueries({ queryKey: ['profile'] })
         queryClient.invalidateQueries({ queryKey: ['auth', 'me'] })
         
@@ -223,8 +344,8 @@ export default function CompanyProfilePage() {
   const handleLegalDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>, docType: 'ktp_founder' | 'akta_pendirian' | 'npwp' | 'nib') => {
     const file = e.target.files?.[0]
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('Ukuran file maksimal 5MB')
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('Ukuran file maksimal 10MB')
         return
       }
 
@@ -234,15 +355,34 @@ export default function CompanyProfilePage() {
         return
       }
 
-      // For now, just show file name as uploaded
-      setUploadedDocuments({
-        ...uploadedDocuments,
-        [docType]: file.name,
-      })
-
-      toast.success(`${docType.replace('_', ' ')} berhasil diunggah`)
-
-      // TODO: Send to backend API
+      try {
+        setIsLoading(true)
+        
+        // Map docType to backend format
+        const docTypeMap: Record<string, string> = {
+          'ktp_founder': 'ktp',
+          'akta_pendirian': 'akta',
+          'npwp': 'npwp',
+          'nib': 'nib',
+        }
+        
+        const response = await authApi.uploadDocument(file, docTypeMap[docType])
+        
+        if (response.success) {
+          setUploadedDocuments({
+            ...uploadedDocuments,
+            [docType]: file.name,
+          })
+          toast.success(`${docType.replace('_', ' ')} berhasil diunggah`)
+        } else {
+          toast.error(`Gagal mengunggah ${docType.replace('_', ' ')}`)
+        }
+      } catch (error) {
+        toast.error(`Gagal mengunggah ${docType.replace('_', ' ')}`)
+        console.error(error)
+      } finally {
+        setIsLoading(false)
+      }
     }
   }
 
@@ -333,112 +473,251 @@ export default function CompanyProfilePage() {
                 Data ini akan ditampilkan di lowongan Anda
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nama Perusahaan</Label>
-                  <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      id="name"
-                      {...register('name')}
-                      className={cn('pl-10', errors.name && 'border-red-500')}
-                    />
+            <CardContent className="space-y-6">
+              {/* Basic Information Section */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Informasi Dasar</h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nama Perusahaan *</Label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        id="name"
+                        placeholder="PT Teknologi Nusantara"
+                        {...register('name')}
+                        className={cn('pl-10', errors.name && 'border-red-500')}
+                      />
+                    </div>
+                    {errors.name && (
+                      <p className="text-sm text-red-500">{errors.name.message}</p>
+                    )}
                   </div>
-                  {errors.name && (
-                    <p className="text-sm text-red-500">{errors.name.message}</p>
-                  )}
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="industry">Industri</Label>
-                  <Select
-                    value={watch('industry')}
-                    onValueChange={(value) => setValue('industry', value)}
-                  >
-                    <SelectTrigger className={errors.industry ? 'border-red-500' : ''}>
-                      <SelectValue placeholder="Pilih industri" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {industryOptions.map((industry) => (
-                        <SelectItem key={industry} value={industry}>
-                          {industry}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.industry && (
-                    <p className="text-sm text-red-500">{errors.industry.message}</p>
-                  )}
-                </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="industry">Industri</Label>
+                      <Select
+                        value={watch('industry')}
+                        onValueChange={(value) => setValue('industry', value)}
+                      >
+                        <SelectTrigger className={errors.industry ? 'border-red-500' : ''}>
+                          <SelectValue placeholder="Pilih industri" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {industryOptions.map((industry) => (
+                            <SelectItem key={industry} value={industry}>
+                              {industry}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.industry && (
+                        <p className="text-sm text-red-500">{errors.industry.message}</p>
+                      )}
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="size">Ukuran Perusahaan</Label>
-                  <Select
-                    value={watch('size')}
-                    onValueChange={(value) => setValue('size', value)}
-                  >
-                    <SelectTrigger className={errors.size ? 'border-red-500' : ''}>
-                      <SelectValue placeholder="Pilih ukuran" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sizeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.size && (
-                    <p className="text-sm text-red-500">{errors.size.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="location">Lokasi</Label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      id="location"
-                      placeholder="Kota, Provinsi"
-                      {...register('location')}
-                      className={cn('pl-10', errors.location && 'border-red-500')}
-                    />
+                    <div className="space-y-2">
+                      <Label htmlFor="size">Ukuran Perusahaan</Label>
+                      <Select
+                        value={watch('size')}
+                        onValueChange={(value) => setValue('size', value)}
+                      >
+                        <SelectTrigger className={errors.size ? 'border-red-500' : ''}>
+                          <SelectValue placeholder="Pilih ukuran" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sizeOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.size && (
+                        <p className="text-sm text-red-500">{errors.size.message}</p>
+                      )}
+                    </div>
                   </div>
-                  {errors.location && (
-                    <p className="text-sm text-red-500">{errors.location.message}</p>
-                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="established_year">Tahun Berdiri</Label>
+                      <Input
+                        id="established_year"
+                        type="number"
+                        placeholder="2015"
+                        {...register('established_year')}
+                        className={errors.established_year ? 'border-red-500' : ''}
+                      />
+                      {errors.established_year && (
+                        <p className="text-sm text-red-500">{errors.established_year.message}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="employee_count">Jumlah Karyawan</Label>
+                      <Input
+                        id="employee_count"
+                        type="number"
+                        placeholder="150"
+                        {...register('employee_count')}
+                        className={errors.employee_count ? 'border-red-500' : ''}
+                      />
+                      {errors.employee_count && (
+                        <p className="text-sm text-red-500">{errors.employee_count.message}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="website">Website (Opsional)</Label>
+                    <div className="relative">
+                      <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        id="website"
+                        placeholder="https://perusahaan.com"
+                        {...register('website')}
+                        className={cn('pl-10', errors.website && 'border-red-500')}
+                      />
+                    </div>
+                    {errors.website && (
+                      <p className="text-sm text-red-500">{errors.website.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Deskripsi Perusahaan *</Label>
+                    <Textarea
+                      id="description"
+                      placeholder="Ceritakan tentang perusahaan Anda..."
+                      rows={5}
+                      {...register('description')}
+                      className={errors.description ? 'border-red-500' : ''}
+                    />
+                    {errors.description && (
+                      <p className="text-sm text-red-500">{errors.description.message}</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="website">Website (Opsional)</Label>
-                <div className="relative">
-                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    id="website"
-                    placeholder="https://perusahaan.com"
-                    {...register('website')}
-                    className={cn('pl-10', errors.website && 'border-red-500')}
-                  />
+              <Separator />
+
+              {/* Contact Information Section */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Informasi Kontak</h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Nomor Telepon</Label>
+                      <Input
+                        id="phone"
+                        placeholder="+62-21-123456"
+                        {...register('phone')}
+                        className={errors.phone ? 'border-red-500' : ''}
+                      />
+                      {errors.phone && (
+                        <p className="text-sm text-red-500">{errors.phone.message}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email Perusahaan</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="info@perusahaan.com"
+                        {...register('email')}
+                        className={errors.email ? 'border-red-500' : ''}
+                      />
+                      {errors.email && (
+                        <p className="text-sm text-red-500">{errors.email.message}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                {errors.website && (
-                  <p className="text-sm text-red-500">{errors.website.message}</p>
-                )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="description">Deskripsi Perusahaan</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Ceritakan tentang perusahaan Anda..."
-                  rows={5}
-                  {...register('description')}
-                  className={errors.description ? 'border-red-500' : ''}
-                />
-                {errors.description && (
-                  <p className="text-sm text-red-500">{errors.description.message}</p>
-                )}
+              <Separator />
+
+              {/* Address Information Section */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Alamat Perusahaan</h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Alamat Lengkap</Label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                      <Textarea
+                        id="address"
+                        placeholder="Jl. Merdeka No. 123"
+                        rows={2}
+                        {...register('address')}
+                        className={cn('pl-10', errors.address && 'border-red-500')}
+                      />
+                    </div>
+                    {errors.address && (
+                      <p className="text-sm text-red-500">{errors.address.message}</p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="city">Kota</Label>
+                      <Input
+                        id="city"
+                        placeholder="Jakarta"
+                        {...register('city')}
+                        className={errors.city ? 'border-red-500' : ''}
+                      />
+                      {errors.city && (
+                        <p className="text-sm text-red-500">{errors.city.message}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="province">Provinsi</Label>
+                      <Input
+                        id="province"
+                        placeholder="DKI Jakarta"
+                        {...register('province')}
+                        className={errors.province ? 'border-red-500' : ''}
+                      />
+                      {errors.province && (
+                        <p className="text-sm text-red-500">{errors.province.message}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="postal_code">Kode Pos</Label>
+                      <Input
+                        id="postal_code"
+                        placeholder="12345"
+                        {...register('postal_code')}
+                        className={errors.postal_code ? 'border-red-500' : ''}
+                      />
+                      {errors.postal_code && (
+                        <p className="text-sm text-red-500">{errors.postal_code.message}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="location">Lokasi Ringkas</Label>
+                      <Input
+                        id="location"
+                        placeholder="Jakarta Selatan, DKI Jakarta"
+                        {...register('location')}
+                        className={errors.location ? 'border-red-500' : ''}
+                      />
+                      {errors.location && (
+                        <p className="text-sm text-red-500">{errors.location.message}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <Separator className="my-4" />

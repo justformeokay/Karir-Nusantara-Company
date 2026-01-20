@@ -11,6 +11,7 @@ export interface Company {
   full_name: string
   phone?: string
   avatar_url?: string
+  // Basic company information
   company_name?: string
   company_logo_url?: string
   company_description?: string
@@ -18,9 +19,27 @@ export interface Company {
   company_industry?: string
   company_size?: string
   company_location?: string
+  // Contact information
+  company_phone?: string
+  company_email?: string
+  // Address information
+  company_address?: string
+  company_city?: string
+  company_province?: string
+  company_postal_code?: string
+  // Additional information
+  established_year?: number
+  employee_count?: number
+  // Document URLs
+  ktp_founder_url?: string
+  akta_pendirian_url?: string
+  npwp_url?: string
+  nib_url?: string
+  // Status
   is_active: boolean
   is_verified: boolean
   verification_status?: CompanyStatus
+  // Timestamps
   created_at: string
 }
 
