@@ -62,12 +62,6 @@ const employmentTypeLabels: Record<string, string> = {
   freelance: 'Freelance',
 }
 
-const workLocationLabels: Record<string, string> = {
-  onsite: 'Onsite',
-  remote: 'Remote',
-  hybrid: 'Hybrid',
-}
-
 export default function JobDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -171,7 +165,9 @@ export default function JobDetailPage() {
   }
 
   // Get location string from job data
-  const jobLocation = job.location || '-'
+  const jobLocation = job.location
+    ? `${job.location.city}${job.location.is_remote ? ', Remote' : ''}`
+    : '-'
 
   return (
     <div className="space-y-6">
@@ -201,7 +197,7 @@ export default function JobDetailPage() {
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="w-4 h-4" />
-                {employmentTypeLabels[job.employment_type] || job.employment_type || '-'}
+                {employmentTypeLabels[job.job_type] || job.job_type || '-'}
               </span>
             </div>
           </div>
@@ -319,12 +315,12 @@ export default function JobDetailPage() {
                 <CardContent className="space-y-4">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Lokasi Kerja</span>
-                    <span className="font-medium">{workLocationLabels[job.work_type] || job.work_type || '-'}</span>
+                    <span className="font-medium">{jobLocation}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between">
                     <span className="text-gray-600">Tipe</span>
-                    <span className="font-medium">{employmentTypeLabels[job.employment_type] || job.employment_type || '-'}</span>
+                    <span className="font-medium">{employmentTypeLabels[job.job_type] || job.job_type || '-'}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between">
@@ -342,12 +338,12 @@ export default function JobDetailPage() {
                       </div>
                     </>
                   )}
-                  {job.expires_at && (
+                  {job.application_deadline && (
                     <>
                       <Separator />
                       <div className="flex justify-between">
                         <span className="text-gray-600">Deadline</span>
-                        <span className="font-medium">{formatDate(job.expires_at)}</span>
+                        <span className="font-medium">{formatDate(job.application_deadline)}</span>
                       </div>
                     </>
                   )}

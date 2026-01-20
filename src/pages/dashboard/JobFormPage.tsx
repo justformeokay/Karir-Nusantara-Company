@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { quotaApi } from '@/api/quota'
 import {
   Select,
   SelectContent,
@@ -92,12 +93,6 @@ const experienceLevels = [
   { value: 'executive', label: 'Executive' },
 ]
 
-// Mock quota data
-const mockQuota = {
-  remainingFreeQuota: 2,
-  pricePerJob: 30000,
-}
-
 export default function JobFormPage() {
   const navigate = useNavigate()
   const { id } = useParams()
@@ -114,7 +109,14 @@ export default function JobFormPage() {
   const [eligibilityError, setEligibilityError] = useState<{ code: string; message: string; details?: string } | null>(null)
   const [showBlockDialog, setShowBlockDialog] = useState(false)
 
-  const needsPayment = mockQuota.remainingFreeQuota <= 0
+  // Fetch quota data
+  const { data: quotaData } = useQuery({
+    queryKey: ['quota'],
+    queryFn: quotaApi.getQuota,
+  })
+
+  const quota = quotaData?.data
+  const needsPayment = quota ? (quota.remaining_free_quota <= 0 && quota.paid_quota <= 0) : false
 
   // Fetch job data when editing
   const { data: jobData, isLoading: isLoadingJob } = useQuery({
@@ -171,17 +173,26 @@ export default function JobFormPage() {
   useEffect(() => {
     if (isEdit && jobData?.data) {
       const job = jobData.data
+      
+      // Reconstruct location string from object
+      let locationString = ''
+      if (typeof job.location === 'object' && job.location !== null) {
+        locationString = `${job.location.city}${job.location.province ? ', ' + job.location.province : ''}`
+      } else if (typeof job.location === 'string') {
+        locationString = job.location
+      }
+      
       setValue('title', job.title || '')
       setValue('description', job.description || '')
       setValue('requirements', job.requirements || '')
-      setValue('location', job.location || '')
+      setValue('location', locationString)
       setValue('salary_min', job.salary_min || 0)
       setValue('salary_max', job.salary_max || 0)
       setValue('salary_currency', job.salary_currency || 'IDR')
       setValue('salary_visible', job.salary_visible ?? true)
       setValue('category', job.category || '')
-      setValue('employment_type', job.employment_type || '')
-      setValue('work_type', job.work_type || '')
+      setValue('employment_type', job.job_type || '')
+      setValue('work_type', job.location?.is_remote ? 'remote' : 'onsite')
       setValue('experience_level', job.experience_level || '')
       setValue('skills', job.skills || [])
     }
@@ -220,6 +231,8 @@ export default function JobFormPage() {
     }
 
     if (needsPayment) {
+      // Save form data for saving as draft before payment
+      setFormData(data)
       setShowPaymentDialog(true)
       return
     }
@@ -263,10 +276,40 @@ export default function JobFormPage() {
     }
   }
 
-  const goToPayment = () => {
+  const goToPayment = async () => {
     setShowPaymentDialog(false)
-    // Save as pending payment and redirect to quota page
-    navigate('/quota')
+    setIsLoading(true)
+    
+    try {
+      // Save as draft first before redirecting to payment
+      if (!formData) {
+        throw new Error('Form data tidak ditemukan')
+      }
+      
+      let response
+      if (isEdit && id) {
+        // Update existing draft
+        response = await jobsApi.update(id, formData)
+      } else {
+        // Create new draft
+        response = await jobsApi.createDraft(formData)
+      }
+      
+      if (response.success) {
+        // Invalidate jobs cache so list refreshes
+        queryClient.invalidateQueries({ queryKey: ['company-jobs'] })
+        toast.success('Lowongan disimpan sebagai draft. Silakan lakukan pembayaran untuk mempublikasikan.')
+        // Redirect to quota page for payment
+        navigate('/quota')
+      } else {
+        toast.error(response.error?.message || 'Gagal menyimpan draft lowongan')
+      }
+    } catch (error: any) {
+      console.error('Save draft error:', error)
+      toast.error(error?.message || 'Gagal menyimpan draft lowongan')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleBlockDialogClose = () => {
@@ -413,6 +456,46 @@ export default function JobFormPage() {
             </p>
           </div>
         </div>
+      )}
+
+      {/* Quota Info Card */}
+      {quota && !isEdit && (
+        <Card className={needsPayment ? 'border-amber-300 bg-amber-50' : 'border-blue-200 bg-blue-50'}>
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-full ${needsPayment ? 'bg-amber-100' : 'bg-blue-100'}`}>
+                  <AlertCircle className={`h-5 w-5 ${needsPayment ? 'text-amber-600' : 'text-blue-600'}`} />
+                </div>
+                <div>
+                  <p className={`font-medium ${needsPayment ? 'text-amber-900' : 'text-blue-900'}`}>
+                    {needsPayment 
+                      ? 'Kuota Habis - Perlu Pembayaran' 
+                      : quota.remaining_free_quota > 0 
+                        ? `Sisa ${quota.remaining_free_quota} Kuota Gratis`
+                        : `Sisa ${quota.paid_quota} Kuota Berbayar`
+                    }
+                  </p>
+                  <p className={`text-sm ${needsPayment ? 'text-amber-700' : 'text-blue-700'}`}>
+                    {needsPayment 
+                      ? `Harga per lowongan: ${formatCurrency(quota.price_per_job)}`
+                      : quota.remaining_free_quota > 0
+                        ? `${quota.used_free_quota}/${quota.free_quota} kuota gratis terpakai`
+                        : `Kuota gratis sudah habis`
+                    }
+                  </p>
+                </div>
+              </div>
+              {needsPayment && (
+                <Link to="/quota">
+                  <Button size="sm" variant="outline" className="border-amber-400 hover:bg-amber-100">
+                    Beli Kuota
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
           <form className="space-y-6" data-testid="job-form">
@@ -702,7 +785,7 @@ export default function JobFormPage() {
                 Anda perlu melakukan pembayaran sebesar:
               </p>
               <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(mockQuota.pricePerJob)}
+                {formatCurrency(quota?.price_per_job || 15000)}
               </p>
               <p>
                 Setelah pembayaran dikonfirmasi, lowongan akan direview dan dipublikasikan.

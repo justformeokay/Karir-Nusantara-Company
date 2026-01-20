@@ -126,6 +126,36 @@ export default function QuotaPage() {
         </p>
       </div>
 
+      {/* Total Quota Summary */}
+      {quota && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="bg-blue-50 border-blue-200">
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <p className="text-3xl font-bold text-blue-900">{quota.remaining_free_quota + quota.paid_quota}</p>
+                <p className="text-sm text-blue-700 mt-1">Total Kuota Tersedia</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-green-50 border-green-200">
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <p className="text-3xl font-bold text-green-900">{quota.remaining_free_quota}</p>
+                <p className="text-sm text-green-700 mt-1">Kuota Gratis Tersisa</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-purple-50 border-purple-200">
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <p className="text-3xl font-bold text-purple-900">{quota.paid_quota}</p>
+                <p className="text-sm text-purple-700 mt-1">Kuota Berbayar</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Quota Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Free Quota Card */}
@@ -136,7 +166,7 @@ export default function QuotaPage() {
               Kuota Lowongan Gratis
             </CardTitle>
             <CardDescription>
-              Setiap perusahaan mendapat 5 lowongan gratis
+              Setiap perusahaan mendapat 10 lowongan gratis
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

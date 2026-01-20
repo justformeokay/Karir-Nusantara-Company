@@ -19,18 +19,26 @@ export interface JobsParams {
 
 // Normalize job data from backend
 function normalizeJob(data: any): Job {
-  // Handle location - could be string or object
-  let location = data.location
-  if (typeof location === 'object' && location !== null) {
-    // If location is object with city/province, construct string
-    if (location.city && location.province) {
-      location = `${location.city}, ${location.province}`
-    } else if (location.city) {
-      location = location.city
-    } else if (location.province) {
-      location = location.province
-    } else {
-      location = JSON.stringify(location)
+  // Handle location - should be object with city, province, is_remote
+  let location: any = {
+    city: '',
+    province: '',
+    is_remote: false,
+  }
+  
+  if (typeof data.location === 'object' && data.location !== null) {
+    location = {
+      city: data.location.city || '',
+      province: data.location.province || '',
+      is_remote: data.location.is_remote || false,
+    }
+  } else if (typeof data.location === 'string') {
+    // If location is string, split by comma for city/province
+    const parts = data.location.split(',')
+    location = {
+      city: parts[0]?.trim() || '',
+      province: parts[1]?.trim() || '',
+      is_remote: data.is_remote || false,
     }
   }
 
@@ -43,9 +51,8 @@ function normalizeJob(data: any): Job {
     requirements: data.requirements,
     responsibilities: data.responsibilities,
     benefits: data.benefits,
-    location: location || '',
-    work_type: data.work_type,
-    employment_type: data.employment_type,
+    location: location,
+    job_type: data.job_type || '',
     experience_level: data.experience_level,
     salary_min: data.salary_min,
     salary_max: data.salary_max,
@@ -58,13 +65,13 @@ function normalizeJob(data: any): Job {
       : [],
     application_url: data.application_url,
     application_email: data.application_email,
+    application_deadline: data.application_deadline,
     status: data.status,
     applications_count: data.applications_count || 0,
     views_count: data.views_count || 0,
     is_featured: data.is_featured,
     is_urgent: data.is_urgent,
     published_at: data.published_at,
-    expires_at: data.expires_at,
     created_at: data.created_at,
     updated_at: data.updated_at,
   }
@@ -143,6 +150,42 @@ export const jobsApi = {
       application_deadline: data.expires_at,
       skills: data.skills || [],
       status: 'active', // Publish directly
+    }
+    
+    const response = await api.post<ApiResponse<any>>('/jobs', backendData)
+    if (response.data && response.success) {
+      return {
+        ...response,
+        data: normalizeJob(response.data),
+      } as unknown as ApiResponse<Job>
+    }
+    return response as unknown as ApiResponse<Job>
+  },
+
+  // Create a new job as DRAFT (no quota check, for pending payment)
+  createDraft: async (data: JobFormData): Promise<ApiResponse<Job>> => {
+    // Transform frontend data to backend format
+    const backendData = {
+      title: data.title,
+      description: data.description,
+      requirements: data.requirements,
+      responsibilities: data.responsibilities,
+      benefits: data.benefits,
+      // Split location into city and province if contains comma, otherwise use as city
+      city: data.location.includes(',') ? data.location.split(',')[0].trim() : data.location,
+      province: data.location.includes(',') ? data.location.split(',')[1].trim() : data.location,
+      // Map work_type to is_remote
+      is_remote: data.work_type === 'remote',
+      // Map employment_type to job_type
+      job_type: data.employment_type,
+      experience_level: data.experience_level,
+      salary_min: data.salary_min,
+      salary_max: data.salary_max,
+      salary_currency: data.salary_currency || 'IDR',
+      is_salary_visible: data.salary_visible,
+      application_deadline: data.expires_at,
+      skills: data.skills || [],
+      status: 'draft', // Save as draft - doesn't consume quota
     }
     
     const response = await api.post<ApiResponse<any>>('/jobs', backendData)

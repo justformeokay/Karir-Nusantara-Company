@@ -61,25 +61,33 @@ export interface Job {
   requirements: string
   responsibilities?: string
   benefits?: string
-  location: string
-  work_type: WorkLocation
-  employment_type: EmploymentType
+  location: {
+    city: string
+    province: string
+    is_remote: boolean
+  }
+  job_type: 'full_time' | 'part_time' | 'contract' | 'internship' | 'freelance'
   experience_level: string
+  salary?: {
+    min?: number
+    max?: number
+    currency: string
+  }
   salary_min?: number
   salary_max?: number
-  salary_currency: string
-  salary_visible: boolean
-  category: string
-  skills: string[]
+  salary_currency?: string
+  salary_visible?: boolean
+  category?: string
+  skills?: string[]
   application_url?: string
   application_email?: string
+  application_deadline?: string
   status: JobStatus
   applications_count: number
   views_count: number
-  is_featured: boolean
-  is_urgent: boolean
+  is_featured?: boolean
+  is_urgent?: boolean
   published_at?: string
-  expires_at?: string
   created_at: string
   updated_at: string
 }
@@ -91,17 +99,17 @@ export interface JobFormData {
   responsibilities?: string
   benefits?: string
   location: string
-  work_type: WorkLocation
-  employment_type: EmploymentType
+  employment_type: 'full_time' | 'part_time' | 'contract' | 'internship' | 'freelance'
+  work_type: 'onsite' | 'remote' | 'hybrid'
+  category?: string
   experience_level: string
   salary_min?: number
   salary_max?: number
-  salary_currency: string
-  salary_visible: boolean
-  category: string
-  skills: string[]
+  salary_currency?: string
+  salary_visible?: boolean
   application_email?: string
   expires_at?: string
+  skills?: string[]
 }
 
 // ============================================

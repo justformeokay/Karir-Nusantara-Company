@@ -1,6 +1,6 @@
 export { api } from './client'
 export { authApi } from './auth'
 export { jobsApi, type JobsParams } from './jobs'
-export { candidatesApi, type CandidatesParams } from './candidates'
+export { candidatesApi, type ApplicationsParams } from './candidates'
 export { quotaApi } from './quota'
 export { dashboardApi } from './dashboard'

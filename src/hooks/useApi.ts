@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { jobsApi, candidatesApi, quotaApi, dashboardApi, type JobsParams, type CandidatesParams } from '@/api'
+import { jobsApi, candidatesApi, quotaApi, dashboardApi, type JobsParams, type ApplicationsParams } from '@/api'
 import type { JobFormData, ApplicationStatus, JobStatus } from '@/types'
 
 // Dashboard hooks
@@ -97,7 +97,7 @@ export function useReopenJob() {
 export function useCandidates(params?: { jobId?: string; status?: ApplicationStatus; search?: string }) {
   return useQuery({
     queryKey: ['candidates', params],
-    queryFn: () => candidatesApi.getAll(params as CandidatesParams),
+    queryFn: () => candidatesApi.getAll(params as ApplicationsParams),
   })
 }
 

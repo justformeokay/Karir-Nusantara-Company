@@ -55,6 +55,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { formatDateShort } from '@/lib/utils'
+import { useEffect } from 'react'
 import type { JobStatus } from '@/types'
 
 const statusConfig: Record<JobStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'success' | 'warning' | 'outline' }> = {
@@ -78,18 +79,29 @@ export default function JobsPage() {
   const isVerified = company?.is_verified
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [currentPage, setCurrentPage] = useState(1)
   const [deleteJobId, setDeleteJobId] = useState<number | null>(null)
+  const itemsPerPage = 10
 
   // Check if legal documents are complete
   // For now, we'll use a simplified check - you can enhance this based on backend response
   const documentsComplete = localStorage.getItem('company_documents_complete') === 'true'
 
-  // Fetch company's jobs
+  // Reset pagination when search or status filter changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, statusFilter])
+
+  // Fetch company's jobs with sorting and pagination
   const { data: jobsData, isLoading } = useQuery({
-    queryKey: ['company-jobs', { search, status: statusFilter }],
+    queryKey: ['company-jobs', { search, status: statusFilter, page: currentPage }],
     queryFn: () => jobsApi.getCompanyJobs({
       search: search || undefined,
       status: statusFilter !== 'all' ? statusFilter as JobStatus : undefined,
+      page: currentPage,
+      per_page: itemsPerPage,
+      sort_by: 'created_at',
+      sort_order: 'desc', // Newest first
     }),
   })
 
@@ -285,11 +297,15 @@ export default function JobsPage() {
                     </TableCell>
                     <TableCell>
                       <span className="text-sm text-gray-600">
-                        {employmentTypeLabels[job.employment_type] || job.employment_type}
+                        {employmentTypeLabels[job.job_type] || job.job_type}
                       </span>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm text-gray-600">{job.location}</span>
+                      <span className="text-sm text-gray-600">
+                        {typeof job.location === 'object' && job.location !== null
+                          ? `${job.location.city}${job.location.is_remote ? ', Remote' : ''}`
+                          : job.location || '-'}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <Badge variant={statusConfig[job.status]?.variant || 'secondary'}>
@@ -358,7 +374,42 @@ export default function JobsPage() {
         </CardContent>
       </Card>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Pagination */}
+      {jobs.length > 0 && jobsData?.meta && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            Menampilkan {((currentPage - 1) * itemsPerPage) + 1} sampai {Math.min(currentPage * itemsPerPage, jobsData.meta.total_items)} dari {jobsData.meta.total_items} lowongan
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(currentPage - 1)}
+            >
+              Sebelumnya
+            </Button>
+            {Array.from({ length: jobsData.meta.total_pages }, (_, i) => i + 1).map((page) => (
+              <Button
+                key={page}
+                variant={currentPage === page ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setCurrentPage(page)}
+              >
+                {page}
+              </Button>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === jobsData.meta.total_pages}
+              onClick={() => setCurrentPage(currentPage + 1)}
+            >
+              Selanjutnya
+            </Button>
+          </div>
+        </div>
+      )}
       <AlertDialog open={!!deleteJobId} onOpenChange={() => setDeleteJobId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
