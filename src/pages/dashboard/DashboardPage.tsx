@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuthStore } from '@/stores/authStore'
 import { dashboardApi } from '@/api/dashboard'
 import { quotaApi } from '@/api/quota'
+import { useCompanyEligibility } from '@/hooks/useCompanyEligibility'
 import {
   Briefcase,
   Users,
@@ -34,7 +35,10 @@ const statusColors: Record<string, string> = {
 
 export default function DashboardPage() {
   const { company } = useAuthStore()
-  const isVerified = company?.is_verified
+  const { canCreateJobs } = useCompanyEligibility()
+  
+  // Check actual eligibility with detailed error
+  const { canCreate, error: eligibilityError } = canCreateJobs(company || undefined)
 
   // Fetch dashboard stats
   const { data: statsData, isLoading: isLoadingStats } = useQuery({
@@ -70,13 +74,28 @@ export default function DashboardPage() {
             Berikut ringkasan aktivitas rekrutmen perusahaan Anda.
           </p>
         </div>
-        {isVerified && (
+        {canCreate ? (
           <Link to="/jobs/new">
             <Button className="gap-2" data-testid="create-job-button">
               <Plus className="w-4 h-4" />
               Buat Lowongan Baru
             </Button>
           </Link>
+        ) : (
+          <div className="group relative">
+            <Button 
+              className="gap-2 opacity-60 cursor-not-allowed" 
+              disabled 
+              data-testid="create-job-button-disabled"
+            >
+              <Plus className="w-4 h-4" />
+              Buat Lowongan Baru
+            </Button>
+            {/* Tooltip on hover */}
+            <div className="absolute right-0 top-full mt-2 hidden group-hover:block bg-gray-900 text-white text-sm p-2 rounded whitespace-nowrap z-10">
+              {eligibilityError?.message}
+            </div>
+          </div>
         )}
       </div>
 
@@ -186,13 +205,7 @@ export default function DashboardPage() {
             <CardTitle className="text-base font-semibold">Aksi Cepat</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-3">
-              <Link to="/jobs/new">
-                <Button variant="outline" className="w-full justify-start gap-2">
-                  <Plus className="w-4 h-4" />
-                  Buat Lowongan
-                </Button>
-              </Link>
+            <div className="grid grid-cols-1 gap-3">
               <Link to="/candidates">
                 <Button variant="outline" className="w-full justify-start gap-2">
                   <Users className="w-4 h-4" />
@@ -300,11 +313,6 @@ export default function DashboardPage() {
                 <div className="text-center py-8 text-gray-500">
                   <Briefcase className="w-10 h-10 mx-auto mb-2 text-gray-400" />
                   <p>Belum ada lowongan aktif</p>
-                  <Link to="/jobs/new">
-                    <Button size="sm" className="mt-3">
-                      Buat Lowongan
-                    </Button>
-                  </Link>
                 </div>
               )}
             </div>

@@ -93,6 +93,7 @@ export default function JobFormPage() {
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
   const [eligibilityError, setEligibilityError] = useState<{ code: string; message: string; details?: string } | null>(null)
   const [company, setCompany] = useState<Company | undefined>(undefined)
+  const [showBlockDialog, setShowBlockDialog] = useState(false)
 
   const needsPayment = mockQuota.remainingFreeQuota <= 0
 
@@ -108,8 +109,10 @@ export default function JobFormPage() {
         const { canCreate, error } = canCreateJobs(userData)
         if (!canCreate) {
           setEligibilityError(error)
+          setShowBlockDialog(true) // Show blocking dialog
         } else {
           setEligibilityError(null)
+          setShowBlockDialog(false)
         }
       }
     } catch (error) {
@@ -180,28 +183,111 @@ export default function JobFormPage() {
     navigate('/quota')
   }
 
+  const handleBlockDialogClose = () => {
+    // Don't allow closing the dialog, redirect instead
+    navigate('/dashboard')
+  }
+
+  const handleGoToProfile = () => {
+    navigate('/profile')
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6" data-testid="job-form-page">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link to="/jobs">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900" data-testid="page-title">
-            {isEdit ? 'Edit Lowongan' : 'Buat Lowongan Baru'}
-          </h1>
-          <p className="text-gray-600 mt-1">
-            {isEdit
-              ? 'Perbarui informasi lowongan pekerjaan'
-              : 'Isi informasi lowongan untuk menarik kandidat terbaik'}
-          </p>
-        </div>
-      </div>
+      {/* Access Blocked Dialog - Shows when company is not eligible */}
+      <AlertDialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-red-600" />
+              Akses Ditolak
+            </AlertDialogTitle>
+            <AlertDialogDescription className="mt-3 space-y-3">
+              <p className="font-semibold text-gray-900">{eligibilityError?.message}</p>
+              {eligibilityError?.details && (
+                <p className="text-sm text-gray-700">{eligibilityError.details}</p>
+              )}
+              
+              {/* Show specific instructions based on error code */}
+              {eligibilityError?.code === 'INCOMPLETE_PROFILE' && (
+                <div className="bg-blue-50 p-3 rounded text-sm text-blue-800">
+                  <p className="font-medium mb-1">💡 Lengkapi profil perusahaan Anda untuk dapat membuat lowongan</p>
+                  <p>Anda akan diarahkan ke halaman profil untuk melengkapi informasi yang masih kurang.</p>
+                </div>
+              )}
+              
+              {eligibilityError?.code === 'MISSING_DOCUMENTS' && (
+                <div className="bg-orange-50 p-3 rounded text-sm text-orange-800">
+                  <p className="font-medium mb-1">📄 Upload semua dokumen yang diperlukan</p>
+                  <p>Silakan lengkapi semua dokumen di halaman profil perusahaan.</p>
+                </div>
+              )}
+              
+              {eligibilityError?.code === 'PENDING_VERIFICATION' && (
+                <div className="bg-amber-50 p-3 rounded text-sm text-amber-800">
+                  <p className="font-medium mb-1">⏳ Menunggu Verifikasi Admin</p>
+                  <p>Dokumen Anda sedang dalam proses verifikasi. Tim kami akan menyelesaikannya dalam 1-2 hari kerja. Anda akan mendapat notifikasi ketika verifikasi selesai.</p>
+                </div>
+              )}
+              
+              {eligibilityError?.code === 'NOT_VERIFIED' && (
+                <div className="bg-red-50 p-3 rounded text-sm text-red-800">
+                  <p className="font-medium mb-1">❌ Perusahaan Belum Diverifikasi</p>
+                  <p>Hubungi tim admin kami untuk informasi lebih lanjut tentang status verifikasi perusahaan Anda.</p>
+                </div>
+              )}
 
-      {/* Eligibility Status */}
+              {eligibilityError?.code === 'VERIFICATION_REJECTED' && (
+                <div className="bg-red-50 p-3 rounded text-sm text-red-800">
+                  <p className="font-medium mb-1">⛔ Dokumen Ditolak</p>
+                  <p>Silakan upload ulang dokumen yang sesuai dengan ketentuan yang berlaku.</p>
+                </div>
+              )}
+
+              {eligibilityError?.code === 'ACCOUNT_SUSPENDED' && (
+                <div className="bg-red-50 p-3 rounded text-sm text-red-800">
+                  <p className="font-medium mb-1">🚫 Akun Di-Suspend</p>
+                  <p>Akun perusahaan Anda sementara tidak dapat membuat lowongan. Hubungi tim support kami untuk bantuan.</p>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex gap-2 sm:justify-between">
+            <AlertDialogCancel onClick={handleBlockDialogClose} className="sm:flex-1">
+              Kembali ke Dashboard
+            </AlertDialogCancel>
+            {eligibilityError?.code !== 'ACCOUNT_SUSPENDED' && (
+              <AlertDialogAction onClick={handleGoToProfile} className="sm:flex-1">
+                Ke Profil Perusahaan
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Only show form if eligible */}
+      {!showBlockDialog && (
+        <>
+          {/* Header */}
+          <div className="flex items-center gap-4">
+            <Link to="/jobs">
+              <Button variant="ghost" size="icon">
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900" data-testid="page-title">
+                {isEdit ? 'Edit Lowongan' : 'Buat Lowongan Baru'}
+              </h1>
+              <p className="text-gray-600 mt-1">
+                {isEdit
+                  ? 'Perbarui informasi lowongan pekerjaan'
+                  : 'Isi informasi lowongan untuk menarik kandidat terbaik'}
+              </p>
+            </div>
+          </div>
+
+          {/* Eligibility Status */}
       {eligibilityError ? (
         <div className="p-4 border border-red-200 bg-red-50 rounded-lg space-y-3">
           <div className="flex items-start gap-3">
@@ -231,17 +317,17 @@ export default function JobFormPage() {
         </div>
       )}
 
-      <form className="space-y-6" data-testid="job-form">
-        {/* Basic Information */}
-        <Card className={eligibilityError ? 'opacity-50 pointer-events-none' : ''}>
-          <CardHeader>
-            <CardTitle>Informasi Dasar</CardTitle>
-            <CardDescription>
-              Informasi utama tentang lowongan pekerjaan
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
+          <form className="space-y-6" data-testid="job-form">
+            {/* Basic Information */}
+            <Card className={eligibilityError ? 'opacity-50 pointer-events-none' : ''}>
+              <CardHeader>
+                <CardTitle>Informasi Dasar</CardTitle>
+                <CardDescription>
+                  Informasi utama tentang lowongan pekerjaan
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
               <Label htmlFor="title">Judul Lowongan *</Label>
               <Input
                 id="title"
@@ -514,6 +600,8 @@ export default function JobFormPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+        </>
+      )}
     </div>
   )
 }
