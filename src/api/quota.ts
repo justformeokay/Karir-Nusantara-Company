@@ -66,4 +66,9 @@ export const quotaApi = {
     }
     return api.upload('/company/payments/proof', formData)
   },
+
+  // Download invoice PDF for confirmed payment
+  downloadInvoice: async (paymentId: number): Promise<Blob> => {
+    return api.download('/company/payments/invoice', { id: paymentId })
+  },
 }

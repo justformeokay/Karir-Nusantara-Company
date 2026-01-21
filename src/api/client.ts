@@ -129,6 +129,31 @@ class ApiClient {
 
     return this.handleResponse<T>(response)
   }
+
+  async download(endpoint: string, params?: Record<string, string | number | undefined>): Promise<Blob> {
+    const url = this.buildUrl(endpoint, params)
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: this.getHeaders(),
+    })
+
+    if (response.status === 401) {
+      useAuthStore.getState().logout()
+      window.location.href = '/login'
+      throw new Error('Session expired')
+    }
+
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        const error = await response.json().catch(() => ({ message: 'Failed to download file' }))
+        throw new Error(error.message || `HTTP ${response.status}`)
+      }
+      throw new Error('Failed to download file')
+    }
+
+    return response.blob()
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL)

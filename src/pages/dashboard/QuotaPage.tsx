@@ -36,6 +36,7 @@ import {
   Gift,
   Sparkles,
   Image,
+  Download,
 } from 'lucide-react'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import { quotaApi } from '@/api/quota'
@@ -96,6 +97,24 @@ export default function QuotaPage() {
   const packages = paymentInfo?.packages || []
 
   const quotaPercentage = quota ? (quota.used_free_quota / quota.free_quota) * 100 : 0
+
+  const handleDownloadInvoice = async (paymentId: number) => {
+    try {
+      const blob = await quotaApi.downloadInvoice(paymentId)
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `invoice_${paymentId}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      toast.success('Invoice berhasil didownload!')
+    } catch (error) {
+      toast.error('Gagal mendownload invoice. Pastikan pembayaran sudah dikonfirmasi.')
+      console.error('Download error:', error)
+    }
+  }
 
   const handleCopyAccountNumber = () => {
     if (paymentInfo?.account_number) {
@@ -365,6 +384,7 @@ export default function QuotaPage() {
                 <TableHead>Jumlah</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Tanggal</TableHead>
+                <TableHead className="text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody data-testid="payment-history-list">
@@ -375,11 +395,12 @@ export default function QuotaPage() {
                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-32 rounded-full" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
                   </TableRow>
                 ))
               ) : payments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-12">
+                  <TableCell colSpan={5} className="text-center py-12">
                     <div className="flex flex-col items-center">
                       <CreditCard className="w-12 h-12 text-gray-300 mb-3" />
                       <p className="text-gray-500">Belum ada riwayat pembayaran</p>
@@ -413,6 +434,19 @@ export default function QuotaPage() {
                             </p>
                           )}
                         </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {payment.status === 'confirmed' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownloadInvoice(payment.id)}
+                            className="gap-2"
+                          >
+                            <Download className="w-4 h-4" />
+                            Invoice
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   )

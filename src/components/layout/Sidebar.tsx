@@ -10,6 +10,7 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
+  FileText,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,6 +25,7 @@ const navigation = [
   { name: 'Lowongan', href: '/jobs', icon: Briefcase },
   { name: 'Kandidat', href: '/candidates', icon: Users },
   { name: 'Kuota & Pembayaran', href: '/quota', icon: CreditCard },
+  { name: 'Riwayat Pembayaran', href: '/payments', icon: FileText },
   { name: 'Profil Perusahaan', href: '/company-profile', icon: Building2 },
   { name: 'Pengaturan', href: '/settings', icon: Settings },
 ]
