@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,11 +31,18 @@ import { authApi } from '@/api/auth'
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(1, 'Password saat ini wajib diisi'),
-  newPassword: z.string().min(8, 'Password minimal 8 karakter'),
+  newPassword: z.string()
+    .min(8, 'Password minimal 8 karakter')
+    .regex(/[A-Z]/, 'Password harus mengandung huruf besar')
+    .regex(/[a-z]/, 'Password harus mengandung huruf kecil')
+    .regex(/[0-9]/, 'Password harus mengandung angka'),
   confirmPassword: z.string().min(1, 'Konfirmasi password wajib diisi'),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: 'Password tidak cocok',
   path: ['confirmPassword'],
+}).refine((data) => data.currentPassword !== data.newPassword, {
+  message: 'Password baru tidak boleh sama dengan password saat ini',
+  path: ['newPassword'],
 })
 
 type PasswordFormData = z.infer<typeof passwordSchema>
@@ -60,17 +68,27 @@ export default function SettingsPage() {
     resolver: zodResolver(passwordSchema),
   })
 
+  const navigate = useNavigate()
+
   // Password change mutation
   const changePasswordMutation = useMutation({
     mutationFn: (data: { currentPassword: string; newPassword: string }) =>
       authApi.changePassword(data.currentPassword, data.newPassword),
     onSuccess: () => {
-      toast.success('Password berhasil diubah!')
+      toast.success('Password berhasil diubah! Silakan login kembali.')
       setShowPasswordDialog(false)
       reset()
+      
+      // Logout dan redirect to login
+      setTimeout(() => {
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('refresh_token')
+        navigate('/login')
+      }, 1500)
     },
-    onError: () => {
-      toast.error('Gagal mengubah password. Pastikan password saat ini benar.')
+    onError: (error: any) => {
+      const errorMsg = error?.response?.data?.error?.message || 'Gagal mengubah password. Pastikan password saat ini benar.'
+      toast.error(errorMsg)
     },
   })
 

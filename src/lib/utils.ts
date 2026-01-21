@@ -14,6 +14,16 @@ export function formatCurrency(amount: number): string {
   }).format(amount)
 }
 
+export function formatNumberWithSeparator(value: string | number): string {
+  if (!value) return ''
+  const numStr = String(value).replace(/\D/g, '')
+  return new Intl.NumberFormat('id-ID').format(Number(numStr) || 0)
+}
+
+export function parseNumberInput(value: string): number {
+  return Number(value.replace(/\D/g, '')) || 0
+}
+
 export function formatDate(date: string | Date): string {
   return new Intl.DateTimeFormat('id-ID', {
     day: 'numeric',

@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { SalaryInput } from '@/components/ui/salary-input'
 import { quotaApi } from '@/api/quota'
 import {
   Select,
@@ -682,9 +683,8 @@ export default function JobFormPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="salary_min">Gaji Minimum (Rp)</Label>
-                  <Input
+                  <SalaryInput
                     id="salary_min"
-                    type="number"
                     placeholder="contoh: 8000000"
                     {...register('salary_min', { valueAsNumber: true })}
                   />
@@ -692,9 +692,8 @@ export default function JobFormPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="salary_max">Gaji Maksimum (Rp)</Label>
-                  <Input
+                  <SalaryInput
                     id="salary_max"
-                    type="number"
                     placeholder="contoh: 12000000"
                     {...register('salary_max', { valueAsNumber: true })}
                   />

@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { authApi } from '@/api/auth'
 import { Loader2, ArrowLeft, CheckCircle } from 'lucide-react'
 
 const forgotPasswordSchema = z.object({
@@ -27,16 +28,24 @@ export default function ForgotPasswordPage() {
     resolver: zodResolver(forgotPasswordSchema),
   })
 
-  const onSubmit = async (_data: ForgotPasswordFormData) => {
+  const onSubmit = async (data: ForgotPasswordFormData) => {
     setIsLoading(true)
     try {
-      // Simulate API call - replace with actual API call
-      // Example: await authApi.forgotPassword(_data.email)
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const response = await authApi.forgotPassword(data.email)
+      
+      if ('success' in response && !response.success) {
+        const errorMsg = response.error?.message || 'Gagal mengirim email'
+        throw new Error(errorMsg)
+      }
+
       setIsSubmitted(true)
       toast.success('Email reset password telah dikirim!')
     } catch (error) {
-      toast.error('Gagal mengirim email. Silakan coba lagi.')
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Gagal mengirim email. Silakan coba lagi.'
+      toast.error(errorMessage)
+      console.error('Forgot password error:', error)
     } finally {
       setIsLoading(false)
     }

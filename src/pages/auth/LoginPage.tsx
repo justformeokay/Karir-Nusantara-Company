@@ -41,8 +41,15 @@ export default function LoginPage() {
         password: data.password,
       })
 
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Login gagal')
+      // Check if response has success flag
+      if ('success' in response && !response.success) {
+        // Backend returned error in response body
+        const errorMsg = response.error?.message || response.error?.code || 'Login gagal'
+        throw new Error(errorMsg)
+      }
+
+      if (!response.data) {
+        throw new Error('Invalid response from server')
       }
 
       // Save auth data

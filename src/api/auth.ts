@@ -161,9 +161,9 @@ export const authApi = {
   },
 
   // Change password (authenticated)
-  changePassword: async (currentPassword: string, newPassword: string): Promise<ApiResponse<null>> => {
-    return api.post('/auth/change-password', { 
-      current_password: currentPassword, 
+  changePassword: async (oldPassword: string, newPassword: string): Promise<ApiResponse<null>> => {
+    return api.put('/auth/change-password', { 
+      old_password: oldPassword, 
       new_password: newPassword 
     })
   },
