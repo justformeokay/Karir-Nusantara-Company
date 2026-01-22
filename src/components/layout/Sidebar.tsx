@@ -11,6 +11,8 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  MessageCircle,
+  FileQuestion,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -27,6 +29,8 @@ const navigation = [
   { name: 'Kuota & Pembayaran', href: '/quota', icon: CreditCard },
   { name: 'Riwayat Pembayaran', href: '/payments', icon: FileText },
   { name: 'Profil Perusahaan', href: '/company-profile', icon: Building2 },
+  { name: 'Chat Support', href: '/chat', icon: MessageCircle },
+  { name: 'Kebijakan & Bantuan', href: '/policies', icon: FileQuestion },
   { name: 'Pengaturan', href: '/settings', icon: Settings },
 ]
 

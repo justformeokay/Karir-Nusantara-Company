@@ -22,6 +22,9 @@ import CandidateDetailPage from '@/pages/dashboard/CandidateDetailPage'
 import QuotaPage from '@/pages/dashboard/QuotaPage'
 import SettingsPage from '@/pages/dashboard/SettingsPage'
 import CompanyProfilePage from '@/pages/dashboard/CompanyProfilePage'
+import PaymentsPage from '@/pages/dashboard/PaymentsPage'
+import ChatPage from '@/pages/dashboard/ChatPage'
+import PoliciesPage from '@/pages/dashboard/PoliciesPage'
 
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -106,8 +109,11 @@ function App() {
           <Route path="/candidates" element={<CandidatesPage />} />
           <Route path="/candidates/:id" element={<CandidateDetailPage />} />
           <Route path="/quota" element={<QuotaPage />} />
+          <Route path="/payments" element={<PaymentsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/company-profile" element={<CompanyProfilePage />} />
+          <Route path="/chat" element={<ChatPage />} />
+          <Route path="/policies" element={<PoliciesPage />} />
         </Route>
 
         {/* Default redirect */}
