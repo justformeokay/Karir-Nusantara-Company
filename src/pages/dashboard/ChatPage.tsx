@@ -30,6 +30,10 @@ import {
   CheckCircle2,
   X,
   Loader2,
+  Image as ImageIcon,
+  Mic,
+  Paperclip,
+  XCircle,
 } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -59,7 +63,17 @@ export default function ChatPage() {
     subject: '',
     category: 'helpdesk' as 'complaint' | 'helpdesk' | 'general' | 'urgent',
   })
+  
+  // Attachment states
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewURL, setPreviewURL] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
+  const [audioChunks, setAudioChunks] = useState<Blob[]>([])
+  
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch all conversations
   const { data: conversations = [], isLoading: conversationsLoading } = useQuery({
@@ -94,12 +108,14 @@ export default function ChatPage() {
 
   // Send message mutation
   const sendMessageMutation = useMutation({
-    mutationFn: ({ conversationId, message }: { conversationId: number; message: string }) =>
-      chatApi.sendMessage(conversationId, { message }),
+    mutationFn: ({ conversationId, data }: { conversationId: number; data: any }) =>
+      chatApi.sendMessage(conversationId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['conversation', selectedConversationId] })
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
       setNewMessage('')
+      setSelectedFile(null)
+      setPreviewURL(null)
       toast.success('Pesan terkirim')
     },
     onError: (error: any) => {
@@ -112,6 +128,15 @@ export default function ChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [conversationDetail?.messages])
+  
+  // Cleanup preview URL
+  useEffect(() => {
+    return () => {
+      if (previewURL) {
+        URL.revokeObjectURL(previewURL)
+      }
+    }
+  }, [previewURL])
 
   // Filter conversations
   const filteredConversations = conversations.filter((conv) =>
@@ -119,12 +144,111 @@ export default function ChatPage() {
     conv.subject.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim() || !selectedConversationId) return
-    sendMessageMutation.mutate({
-      conversationId: selectedConversationId,
-      message: newMessage,
-    })
+  // Check if there's any active conversation (ticketing mode)
+  const hasActiveConversation = conversations.some(
+    (conv) => conv.status === 'open' || conv.status === 'in_progress'
+  )
+
+  // Handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    if (!validImageTypes.includes(file.type)) {
+      toast.error('Format file tidak didukung. Gunakan JPG, PNG, GIF, atau WEBP')
+      return
+    }
+
+    // Validate file size (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File terlalu besar. Maksimal 10MB')
+      return
+    }
+
+    setSelectedFile(file)
+    setPreviewURL(URL.createObjectURL(file))
+  }
+
+  // Handle voice recording
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      const chunks: Blob[] = []
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunks.push(e.data)
+        }
+      }
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(chunks, { type: 'audio/webm' })
+        const audioFile = new File([audioBlob], `voice_${Date.now()}.webm`, { type: 'audio/webm' })
+        setSelectedFile(audioFile)
+        stream.getTracks().forEach(track => track.stop())
+      }
+
+      recorder.start()
+      setMediaRecorder(recorder)
+      setIsRecording(true)
+      setAudioChunks(chunks)
+    } catch (error) {
+      toast.error('Gagal mengakses mikrofon')
+      console.error('Recording error:', error)
+    }
+  }
+
+  const stopRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop()
+      setIsRecording(false)
+      setMediaRecorder(null)
+    }
+  }
+
+  const cancelAttachment = () => {
+    setSelectedFile(null)
+    if (previewURL) {
+      URL.revokeObjectURL(previewURL)
+      setPreviewURL(null)
+    }
+  }
+
+  const handleSendMessage = async () => {
+    if (!selectedConversationId) return
+    if (!newMessage.trim() && !selectedFile) {
+      toast.error('Pesan atau file harus diisi')
+      return
+    }
+
+    try {
+      let messageData: any = { message: newMessage }
+
+      // Upload file if selected
+      if (selectedFile) {
+        setIsUploading(true)
+        const fileType = selectedFile.type.startsWith('image/') ? 'image' : 'audio'
+        const uploadResult = await chatApi.uploadAttachment(selectedFile, fileType)
+        messageData = {
+          message: newMessage || (fileType === 'image' ? '📷 Gambar' : '🎤 Pesan Suara'),
+          attachment_url: uploadResult.url,
+          attachment_type: uploadResult.type,
+          attachment_filename: uploadResult.filename,
+        }
+        setIsUploading(false)
+      }
+
+      sendMessageMutation.mutate({
+        conversationId: selectedConversationId,
+        data: messageData,
+      })
+    } catch (error: any) {
+      setIsUploading(false)
+      toast.error(error?.response?.data?.message || 'Gagal mengunggah file')
+    }
   }
 
   const handleCreateConversation = () => {
@@ -142,7 +266,18 @@ export default function ChatPage() {
         <CardHeader className="flex-none">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Chat Support</CardTitle>
-            <Button size="sm" onClick={() => setShowNewConversationDialog(true)}>
+            <Button 
+              size="sm" 
+              onClick={() => {
+                if (hasActiveConversation) {
+                  toast.error('Anda masih memiliki percakapan aktif. Silakan tutup percakapan tersebut terlebih dahulu.')
+                } else {
+                  setShowNewConversationDialog(true)
+                }
+              }}
+              disabled={hasActiveConversation}
+              title={hasActiveConversation ? 'Tutup percakapan aktif terlebih dahulu' : 'Buat percakapan baru'}
+            >
               <Plus className="h-4 w-4 mr-1" />
               Baru
             </Button>
@@ -268,32 +403,76 @@ export default function ChatPage() {
                   <p className="text-sm">Belum ada pesan. Kirim pesan pertama Anda!</p>
                 </div>
               ) : (
-                conversationDetail.messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={cn('flex', msg.sender_type === 'company' ? 'justify-end' : 'justify-start')}
-                  >
+                conversationDetail.messages.map((msg) => {
+                  const hasAttachment = msg.attachment_url?.Valid && msg.attachment_url?.String
+                  const isImage = msg.attachment_type?.String === 'image'
+                  const isAudio = msg.attachment_type?.String === 'audio'
+                  
+                  // Fix URL: handle both old (/uploads/chat/) and new (/docs/chat/) formats
+                  let attachmentURL = ''
+                  if (hasAttachment && msg.attachment_url) {
+                    const urlString = msg.attachment_url.String || ''
+                    // Replace old URL format with new one
+                    attachmentURL = urlString.replace('/uploads/chat/', '/docs/chat/')
+                    // Ensure it starts with /docs/chat/
+                    if (!attachmentURL.startsWith('/docs/') && !attachmentURL.startsWith('http')) {
+                      attachmentURL = '/docs/chat/' + attachmentURL.split('/').pop()
+                    }
+                  }
+                  
+                  return (
                     <div
-                      className={cn(
-                        'max-w-[70%] rounded-lg p-3 shadow-sm',
-                        msg.sender_type === 'company' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'
-                      )}
+                      key={msg.id}
+                      className={cn('flex', msg.sender_type === 'company' ? 'justify-end' : 'justify-start')}
                     >
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-medium">{msg.sender_name}</span>
-                        <span
-                          className={cn(
-                            'text-xs',
-                            msg.sender_type === 'company' ? 'text-blue-100' : 'text-gray-500'
-                          )}
-                        >
-                          {formatDate(msg.created_at)}
-                        </span>
+                      <div
+                        className={cn(
+                          'max-w-[70%] rounded-lg p-3 shadow-sm',
+                          msg.sender_type === 'company' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'
+                        )}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-medium">{msg.sender_name}</span>
+                          <span
+                            className={cn(
+                              'text-xs',
+                              msg.sender_type === 'company' ? 'text-blue-100' : 'text-gray-500'
+                            )}
+                          >
+                            {formatDate(msg.created_at)}
+                          </span>
+                        </div>
+                        
+                        {/* Attachment Display */}
+                        {hasAttachment && (
+                          <div className="mb-2">
+                            {isImage && (
+                              <img 
+                                src={`http://localhost:8081${attachmentURL}`}
+                                alt={msg.attachment_filename?.String || 'Image'}
+                                className="max-w-full rounded cursor-pointer hover:opacity-90"
+                                onClick={() => window.open(`http://localhost:8081${attachmentURL}`, '_blank')}
+                              />
+                            )}
+                            {isAudio && (
+                              <audio 
+                                controls 
+                                className="max-w-full"
+                                src={`http://localhost:8081${attachmentURL}`}
+                              >
+                                Your browser does not support the audio element.
+                              </audio>
+                            )}
+                          </div>
+                        )}
+                        
+                        {msg.message && (
+                          <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                        )}
                       </div>
-                      <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
                     </div>
-                  </div>
-                ))
+                  )
+                })
               )}
               <div ref={messagesEndRef} />
             </CardContent>
@@ -306,27 +485,84 @@ export default function ChatPage() {
                   <span className="text-sm text-gray-600">Percakapan ini sudah ditutup</span>
                 </div>
               ) : (
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Ketik pesan..."
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                    disabled={sendMessageMutation.isPending}
-                  />
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!newMessage.trim() || sendMessageMutation.isPending}
-                  >
-                    {sendMessageMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4 mr-2" />
-                        Kirim
-                      </>
-                    )}
-                  </Button>
+                <div className="space-y-2">
+                  {/* File Preview */}
+                  {selectedFile && (
+                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border">
+                      {previewURL && selectedFile.type.startsWith('image/') ? (
+                        <img src={previewURL} alt="Preview" className="h-16 w-16 object-cover rounded" />
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Mic className="h-4 w-4" />
+                          <span className="text-sm">{selectedFile.name}</span>
+                        </div>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={cancelAttachment}
+                        className="ml-auto"
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {/* Input Area */}
+                  <div className="flex gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      className="hidden"
+                      onChange={handleFileSelect}
+                    />
+                    
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading || sendMessageMutation.isPending || isRecording}
+                      title="Lampirkan gambar"
+                    >
+                      <ImageIcon className="h-4 w-4" />
+                    </Button>
+                    
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant={isRecording ? "destructive" : "outline"}
+                      onClick={isRecording ? stopRecording : startRecording}
+                      disabled={isUploading || sendMessageMutation.isPending}
+                      title={isRecording ? "Hentikan rekaman" : "Rekam suara"}
+                    >
+                      <Mic className="h-4 w-4" />
+                    </Button>
+                    
+                    <Input
+                      placeholder={isRecording ? "Merekam..." : "Ketik pesan..."}
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                      disabled={sendMessageMutation.isPending || isUploading || isRecording}
+                      className="flex-1"
+                    />
+                    
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={(!newMessage.trim() && !selectedFile) || sendMessageMutation.isPending || isUploading}
+                    >
+                      {(sendMessageMutation.isPending || isUploading) ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4 mr-2" />
+                          Kirim
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>

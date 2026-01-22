@@ -25,6 +25,9 @@ export interface ChatMessage {
   sender_id: number;
   sender_type: 'company' | 'admin';
   message: string;
+  attachment_url?: { String: string; Valid: boolean } | null;
+  attachment_type?: { String: string; Valid: boolean } | null;
+  attachment_filename?: { String: string; Valid: boolean } | null;
   is_read: boolean;
   created_at: string;
   sender_name: string;
@@ -43,6 +46,9 @@ export interface CreateConversationRequest {
 
 export interface SendMessageRequest {
   message: string;
+  attachment_url?: string;
+  attachment_type?: string;
+  attachment_filename?: string;
 }
 
 interface ApiResponse<T> {
@@ -78,6 +84,19 @@ export const chatApi = {
     const response = await api.post<ApiResponse<ChatMessage>>(
       `/company/chat/conversations/${conversationId}/messages`,
       data
+    );
+    return response.data;
+  },
+
+  // Upload attachment (image or audio)
+  uploadAttachment: async (file: File, type: 'image' | 'audio'): Promise<{ url: string; type: string; filename: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+    
+    const response = await api.upload<ApiResponse<{ url: string; type: string; filename: string }>>(
+      '/company/chat/upload',
+      formData
     );
     return response.data;
   },
