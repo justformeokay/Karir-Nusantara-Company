@@ -1,4 +1,4 @@
-import api from './client';
+import { api } from './client';
 
 export interface Conversation {
   id: number;
@@ -45,28 +45,37 @@ export interface SendMessageRequest {
   message: string;
 }
 
+interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
 export const chatApi = {
   // Get all conversations for logged in company
   getConversations: async (): Promise<Conversation[]> => {
-    const response = await api.get<Conversation[]>('/company/chat/conversations');
+    const response = await api.get<ApiResponse<Conversation[]>>('/company/chat/conversations');
     return response.data;
   },
 
   // Create a new conversation
   createConversation: async (data: CreateConversationRequest): Promise<Conversation> => {
-    const response = await api.post<Conversation>('/company/chat/conversations', data);
+    const response = await api.post<ApiResponse<Conversation>>('/company/chat/conversations', data);
     return response.data;
   },
 
   // Get a specific conversation with messages
   getConversation: async (id: number): Promise<ConversationDetail> => {
-    const response = await api.get<ConversationDetail>(`/company/chat/conversations/${id}`);
-    return response.data;
+    const response = await api.get<ApiResponse<ConversationDetail>>(`/company/chat/conversations/${id}`);
+    return {
+      ...response.data,
+      messages: response.data.messages || [],
+    };
   },
 
   // Send a message in a conversation
   sendMessage: async (conversationId: number, data: SendMessageRequest): Promise<ChatMessage> => {
-    const response = await api.post<ChatMessage>(
+    const response = await api.post<ApiResponse<ChatMessage>>(
       `/company/chat/conversations/${conversationId}/messages`,
       data
     );
