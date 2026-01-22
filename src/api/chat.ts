@@ -100,6 +100,25 @@ export const chatApi = {
     );
     return response.data;
   },
+
+  // Close conversation (company can close their own conversation)
+  closeConversation: async (conversationId: number): Promise<void> => {
+    await api.patch<ApiResponse<null>>(`/company/chat/conversations/${conversationId}/close`, {});
+  },
+
+  // Download conversation as PDF
+  downloadConversationPDF: async (conversationId: number): Promise<void> => {
+    const blob = await api.download(`/company/chat/conversations/${conversationId}/pdf`);
+    
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `conversation_${conversationId}_${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  },
 };
 
 export default chatApi;

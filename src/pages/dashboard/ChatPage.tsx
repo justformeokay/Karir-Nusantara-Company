@@ -34,6 +34,7 @@ import {
   Mic,
   Paperclip,
   XCircle,
+  Download,
 } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -374,11 +375,11 @@ export default function ChatPage() {
             {/* Chat Header */}
             <CardHeader className="border-b flex-none">
               <div className="flex items-start justify-between">
-                <div>
+                <div className="flex-1">
                   <CardTitle className="text-lg">{conversationDetail.conversation.title}</CardTitle>
                   <p className="text-sm text-gray-500 mt-1">{conversationDetail.conversation.subject}</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-start">
                   <Badge
                     variant="outline"
                     className={cn('px-3 py-1', categoryConfig[conversationDetail.conversation.category].color)}
@@ -391,6 +392,46 @@ export default function ChatPage() {
                   >
                     {statusConfig[conversationDetail.conversation.status].label}
                   </Badge>
+                  
+                  {/* Close Conversation Button */}
+                  {(conversationDetail.conversation.status === 'open' || conversationDetail.conversation.status === 'in_progress') && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          await chatApi.closeConversation(conversationDetail.conversation.id)
+                          queryClient.invalidateQueries({ queryKey: ['conversations'] })
+                          queryClient.invalidateQueries({ queryKey: ['conversation', selectedConversationId] })
+                          toast.success('Percakapan berhasil ditutup')
+                        } catch (error: any) {
+                          toast.error(error?.message || 'Gagal menutup percakapan')
+                        }
+                      }}
+                      className="text-xs"
+                    >
+                      <XCircle className="h-3.5 w-3.5 mr-1" />
+                      Tutup
+                    </Button>
+                  )}
+                  
+                  {/* Download PDF Button */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        await chatApi.downloadConversationPDF(conversationDetail.conversation.id)
+                        toast.success('PDF berhasil diunduh')
+                      } catch (error: any) {
+                        toast.error(error?.message || 'Gagal mengunduh PDF')
+                      }
+                    }}
+                    className="text-xs"
+                  >
+                    <Download className="h-3.5 w-3.5 mr-1" />
+                    PDF
+                  </Button>
                 </div>
               </div>
             </CardHeader>

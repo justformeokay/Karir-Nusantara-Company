@@ -14,6 +14,8 @@ import {
   HelpCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
+import { policiesApi } from '@/api/policies'
 
 interface PolicySection {
   title: string
@@ -60,7 +62,7 @@ Untuk informasi lebih detail, silakan baca Kebijakan Privasi lengkap kami.`,
     icon: FileText,
     content: `Pembayaran di platform Karir Nusantara bersifat final. Berikut adalah kebijakan kami:
 
-• Harga kuota lowongan pekerjaan adalah Rp 15.000 per lowongan
+• Harga kuota lowongan pekerjaan adalah Rp 10.000 per lowongan
 • Pembayaran dapat dilakukan melalui transfer bank ke rekening yang tersedia
 • Invoice otomatis akan dikirim ke email Anda setelah pembayaran dikonfirmasi
 • Gratis 1 lowongan pertama kali untuk setiap perusahaan baru
@@ -124,7 +126,7 @@ const faqItems: FAQItem[] = [
     question: 'Berapa biaya untuk membuat lowongan di Karir Nusantara?',
     category: 'Pembayaran',
     answer:
-      'Setiap lowongan pekerjaan dikenakan biaya Rp 15.000. Anda mendapatkan 1 lowongan gratis untuk pertama kali. Paket top-up juga tersedia dengan harga yang lebih ekonomis.',
+      'Setiap lowongan pekerjaan dikenakan biaya Rp 10.000. Anda mendapatkan 1 lowongan gratis untuk pertama kali. Paket top-up juga tersedia dengan harga yang lebih ekonomis.',
   },
   {
     question: 'Bagaimana cara membayar kuota lowongan?',
@@ -266,11 +268,33 @@ export default function PoliciesPage() {
                 Unduh versi PDF lengkap dari semua kebijakan platform kami:
               </p>
               <div className="space-y-2">
-                <Button variant="outline" className="w-full justify-between">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-between"
+                  onClick={async () => {
+                    try {
+                      await policiesApi.downloadPrivacyPolicyPDF()
+                      toast.success('Kebijakan Privasi berhasil diunduh!')
+                    } catch (error: any) {
+                      toast.error(error?.message || 'Gagal mengunduh Kebijakan Privasi')
+                    }
+                  }}
+                >
                   Kebijakan Privasi Lengkap (PDF)
                   <ExternalLink className="w-4 h-4" />
                 </Button>
-                <Button variant="outline" className="w-full justify-between">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-between"
+                  onClick={async () => {
+                    try {
+                      await policiesApi.downloadTermsOfServicePDF()
+                      toast.success('Terms of Service berhasil diunduh!')
+                    } catch (error: any) {
+                      toast.error(error?.message || 'Gagal mengunduh Terms of Service')
+                    }
+                  }}
+                >
                   Terms of Service Lengkap (PDF)
                   <ExternalLink className="w-4 h-4" />
                 </Button>

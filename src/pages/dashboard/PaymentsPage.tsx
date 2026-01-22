@@ -32,6 +32,11 @@ export default function PaymentsPage() {
 
   const payments = paymentsData?.data || []
 
+  // Calculate totals
+  const totalAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0)
+  const confirmedCount = payments.filter((p) => p.status === 'confirmed').length
+  const pendingCount = payments.filter((p) => p.status === 'pending').length
+
   const handleDownloadInvoice = async (paymentId: number) => {
     try {
       const blob = await quotaApi.downloadInvoice(paymentId)
@@ -67,7 +72,7 @@ export default function PaymentsPage() {
             <CardTitle className="text-sm font-medium text-gray-600">Total Pembayaran</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">Rp {payments.length}</div>
+            <div className="text-2xl font-bold">{formatCurrency(totalAmount)}</div>
             <p className="text-xs text-gray-500 mt-1">Total transaksi</p>
           </CardContent>
         </Card>
@@ -78,7 +83,7 @@ export default function PaymentsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {payments.filter((p) => p.status === 'confirmed').length}
+              {confirmedCount}
             </div>
             <p className="text-xs text-gray-500 mt-1">Pembayaran sukses</p>
           </CardContent>
@@ -90,7 +95,7 @@ export default function PaymentsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-amber-600">
-              {payments.filter((p) => p.status === 'pending').length}
+              {pendingCount}
             </div>
             <p className="text-xs text-gray-500 mt-1">Sedang diverifikasi</p>
           </CardContent>
