@@ -44,6 +44,7 @@ function normalizeJob(data: any): Job {
 
   return {
     id: data.id,
+    hash_id: data.hash_id,
     company_id: data.company_id,
     title: data.title,
     slug: data.slug,

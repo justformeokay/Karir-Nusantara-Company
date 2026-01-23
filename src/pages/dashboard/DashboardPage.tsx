@@ -294,7 +294,7 @@ export default function DashboardPage() {
                 stats.active_jobs_list.map((job) => (
                   <Link
                     key={job.id}
-                    to={`/jobs/${job.id}`}
+                    to={`/jobs/${job.hash_id || job.id}`}
                     className="block p-3 rounded-lg border hover:border-primary/50 hover:bg-gray-50 transition-colors"
                   >
                     <h4 className="font-medium text-gray-900">{job.title}</h4>

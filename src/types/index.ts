@@ -54,6 +54,7 @@ export type WorkLocation = 'onsite' | 'remote' | 'hybrid'
 
 export interface Job {
   id: number
+  hash_id?: string
   company_id: number
   title: string
   slug: string

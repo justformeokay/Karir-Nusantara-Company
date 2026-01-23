@@ -204,7 +204,7 @@ export default function JobDetailPage() {
         </div>
 
         <div className="flex gap-2 ml-12 lg:ml-0">
-          <Link to={`/jobs/${id}/edit`}>
+          <Link to={`/jobs/${job.hash_id || id}/edit`}>
             <Button variant="outline" className="gap-2">
               <Edit className="w-4 h-4" />
               Edit

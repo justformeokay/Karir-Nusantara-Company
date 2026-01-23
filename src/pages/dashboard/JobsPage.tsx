@@ -287,7 +287,7 @@ export default function JobsPage() {
                     <TableCell>
                       <div>
                         <Link
-                          to={`/jobs/${job.id}`}
+                          to={`/jobs/${job.hash_id || job.id}`}
                           className="font-medium text-gray-900 hover:text-primary"
                         >
                           {job.title}
@@ -332,13 +332,13 @@ export default function JobsPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem asChild>
-                            <Link to={`/jobs/${job.id}`} className="flex items-center">
+                            <Link to={`/jobs/${job.hash_id || job.id}`} className="flex items-center">
                               <Eye className="w-4 h-4 mr-2" />
                               Lihat Detail
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link to={`/jobs/${job.id}/edit`} className="flex items-center">
+                            <Link to={`/jobs/${job.hash_id || job.id}/edit`} className="flex items-center">
                               <Edit className="w-4 h-4 mr-2" />
                               Edit
                             </Link>
