@@ -30,6 +30,7 @@ import {
   Calendar,
   Pause,
   Play,
+  Share2,
 } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { jobsApi } from '@/api/jobs'
@@ -60,6 +61,15 @@ const employmentTypeLabels: Record<string, string> = {
   contract: 'Kontrak',
   internship: 'Magang',
   freelance: 'Freelance',
+}
+
+// Helper function to calculate days since published
+function getDaysSincePublished(publishedAt: string): number {
+  const published = new Date(publishedAt)
+  const now = new Date()
+  const diffInMs = now.getTime() - published.getTime()
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
+  return Math.max(0, diffInDays)
 }
 
 export default function JobDetailPage() {
@@ -228,7 +238,7 @@ export default function JobDetailPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 ml-12 lg:ml-0">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 ml-12 lg:ml-0">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -236,7 +246,7 @@ export default function JobDetailPage() {
                 <Users className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{job.applications_count || 0}</p>
+                <p className="text-2xl font-bold">{job.applications_count ?? 0}</p>
                 <p className="text-sm text-gray-600">Pelamar</p>
               </div>
             </div>
@@ -249,8 +259,21 @@ export default function JobDetailPage() {
                 <Eye className="w-5 h-5 text-purple-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{job.views_count || 0}</p>
+                <p className="text-2xl font-bold">{job.views_count ?? 0}</p>
                 <p className="text-sm text-gray-600">Dilihat</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                <Share2 className="w-5 h-5 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{job.shares_count ?? 0}</p>
+                <p className="text-sm text-gray-600">Dibagikan</p>
               </div>
             </div>
           </CardContent>
@@ -262,8 +285,8 @@ export default function JobDetailPage() {
                 <Calendar className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{job.published_at ? formatDate(job.published_at).split(' ')[0] : '-'}</p>
-                <p className="text-sm text-gray-600">Dipublikasikan</p>
+                <p className="text-2xl font-bold">{job.published_at ? getDaysSincePublished(job.published_at) : '-'}</p>
+                <p className="text-sm text-gray-600">Hari Dipublikasikan</p>
               </div>
             </div>
           </CardContent>

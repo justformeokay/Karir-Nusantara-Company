@@ -17,7 +17,7 @@ import {
   Plus,
   ArrowRight,
 } from 'lucide-react'
-import { cn, formatRelativeTime } from '@/lib/utils'
+import { cn, formatRelativeTime, getAvatarUrl } from '@/lib/utils'
 
 const statusColors: Record<string, string> = {
   submitted: 'bg-blue-100 text-blue-800',
@@ -235,16 +235,28 @@ export default function DashboardPage() {
                 stats.recent_applicants.map((applicant) => (
                   <Link
                     key={applicant.id}
-                    to={`/candidates/${applicant.id}`}
+                    to={`/candidates/${applicant.hash_id || applicant.id}`}
                     className="flex items-center justify-between py-3 border-b last:border-0 hover:bg-gray-50 -mx-2 px-2 rounded transition-colors"
                     data-testid="applicant-card"
                   >
                     <div className="flex items-center gap-3">
                       {applicant.applicant_photo ? (
                         <img 
-                          src={applicant.applicant_photo} 
+                          src={getAvatarUrl(applicant.applicant_photo) || ''} 
                           alt={applicant.applicant_name}
                           className="w-10 h-10 rounded-full object-cover"
+                          onError={(e) => {
+                            // Fallback to initial if image fails to load
+                            const img = e.target as HTMLImageElement
+                            img.style.display = 'none'
+                            const parent = img.parentElement
+                            if (parent) {
+                              const fallback = document.createElement('div')
+                              fallback.className = 'w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center'
+                              fallback.innerHTML = `<span class="text-sm font-medium text-gray-600">${applicant.applicant_name.charAt(0)}</span>`
+                              parent.appendChild(fallback)
+                            }
+                          }}
                         />
                       ) : (
                         <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">

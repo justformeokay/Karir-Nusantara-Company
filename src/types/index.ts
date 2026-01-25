@@ -86,6 +86,7 @@ export interface Job {
   status: JobStatus
   applications_count: number
   views_count: number
+  shares_count?: number
   is_featured?: boolean
   is_urgent?: boolean
   published_at?: string
@@ -133,29 +134,111 @@ export type ApplicationStatus =
 
 export interface Candidate {
   id: number
-  user_id: number
-  full_name: string
+  hash_id?: string
+  user_id?: number
+  name?: string        // from API
+  full_name?: string   // fallback
   email: string
   phone?: string
   avatar_url?: string
   cv_url?: string
-  created_at: string
+  created_at?: string
 }
 
 export interface Application {
   id: number
-  job_id: number
-  user_id: number
+  hash_id?: string
+  job_id?: number
+  user_id?: number
   cv_id?: number
   cover_letter?: string
   current_status: ApplicationStatus
   status_label: string
   applied_at: string
   viewed_at?: string
-  created_at: string
-  updated_at: string
-  job?: Pick<Job, 'id' | 'title' | 'status'>
+  created_at?: string
+  updated_at?: string
+  last_status_update?: string
+  job?: {
+    id: number
+    hash_id?: string
+    title: string
+    status?: string
+    company?: {
+      id: number
+      hash_id?: string
+      name: string
+      logo_url?: string
+    }
+    city?: string
+    province?: string
+  }
   applicant?: Candidate
+  cv_snapshot?: {
+    id: number
+    completeness_score: number
+    personal_info?: {
+      full_name?: string
+      email?: string
+      phone?: string
+      address?: string
+      summary?: string
+      linkedin?: string
+      github?: string
+      portfolio?: string
+    }
+    education?: Array<{
+      institution: string
+      degree: string
+      field_of_study: string
+      start_date: string
+      end_date?: string
+      is_current?: boolean
+      gpa?: number
+    }>
+    experience?: Array<{
+      company: string
+      position: string
+      start_date: string
+      end_date?: string
+      is_current?: boolean
+      description?: string
+    }>
+    skills?: Array<{
+      name: string
+      level: 'beginner' | 'intermediate' | 'advanced' | 'expert'
+    }>
+    certifications?: Array<{
+      name: string
+      issuer: string
+      issue_date?: string
+      expiry_date?: string
+      credential_id?: string
+      credential_url?: string
+    }>
+    languages?: Array<{
+      name: string
+      proficiency: 'basic' | 'conversational' | 'fluent' | 'native'
+    }>
+    projects?: Array<{
+      title: string
+      description?: string
+      url?: string
+      start_date?: string
+      end_date?: string
+    }>
+    created_at: string
+  }
+  timeline?: Array<{
+    id: number
+    status: string
+    status_label: string
+    note?: string
+    scheduled_at?: string
+    scheduled_location?: string
+    scheduled_notes?: string
+    created_at: string
+  }>
   status_history?: ApplicationStatusHistory[]
 }
 
@@ -210,6 +293,7 @@ export interface DashboardStats {
 
 export interface RecentApplicant {
   id: number
+  hash_id?: string
   applicant_name: string
   applicant_photo: string
   job_id: number
@@ -221,6 +305,7 @@ export interface RecentApplicant {
 
 export interface ActiveJob {
   id: number
+  hash_id?: string
   title: string
   status: JobStatus
   applicants_count: number

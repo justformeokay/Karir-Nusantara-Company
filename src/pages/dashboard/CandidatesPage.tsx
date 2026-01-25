@@ -35,7 +35,7 @@ import {
   FileText,
   Users,
 } from 'lucide-react'
-import { cn, formatDateShort, getInitials } from '@/lib/utils'
+import { cn, formatDateShort, getInitials, getAvatarUrl } from '@/lib/utils'
 import { candidatesApi } from '@/api/candidates'
 import { jobsApi } from '@/api/jobs'
 import type { ApplicationStatus } from '@/types'
@@ -186,17 +186,17 @@ export default function CandidatesPage() {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="w-10 h-10">
-                          <AvatarImage src={application.applicant?.avatar_url || undefined} />
+                          <AvatarImage src={getAvatarUrl(application.applicant?.avatar_url) || undefined} />
                           <AvatarFallback className="bg-primary/10 text-primary">
-                            {getInitials(application.applicant?.full_name || 'N/A')}
+                            {getInitials(application.applicant?.name || application.applicant?.full_name || 'NA')}
                           </AvatarFallback>
                         </Avatar>
                         <div>
                           <Link
-                            to={`/candidates/${application.id}`}
+                            to={`/candidates/${application.hash_id || application.id}`}
                             className="font-medium text-gray-900 hover:text-primary"
                           >
-                            {application.applicant?.full_name || 'Kandidat'}
+                            {application.applicant?.name || application.applicant?.full_name || 'Kandidat'}
                           </Link>
                           <p className="text-sm text-gray-500">{application.applicant?.email}</p>
                         </div>
@@ -224,7 +224,7 @@ export default function CandidatesPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem asChild>
-                            <Link to={`/candidates/${application.id}`} className="flex items-center">
+                            <Link to={`/candidates/${application.hash_id || application.id}`} className="flex items-center">
                               <Eye className="w-4 h-4 mr-2" />
                               Lihat Profil
                             </Link>

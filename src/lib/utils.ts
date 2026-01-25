@@ -67,3 +67,20 @@ export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
   return text.slice(0, maxLength) + '...'
 }
+export function getAvatarUrl(avatarUrl?: string): string | null {
+  if (!avatarUrl) return null
+  
+  // If it already starts with http or https, return as is
+  if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) {
+    return avatarUrl
+  }
+  
+  // Otherwise, build the full URL from the API
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1'
+  const baseUrl = apiUrl.replace('/api/v1', '')
+  
+  // Remove leading slashes to avoid double slashes
+  const cleanPath = avatarUrl.replace(/^\/+/, '')
+  
+  return `${baseUrl}/${cleanPath}`
+}
