@@ -34,13 +34,8 @@ import {
 } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { jobsApi } from '@/api/jobs'
+import { candidatesApi } from '@/api/candidates'
 import type { JobStatus } from '@/types'
-
-const mockApplicants = [
-  { id: '1', name: 'Budi Santoso', email: 'budi@email.com', status: 'applied', appliedAt: '2026-01-17' },
-  { id: '2', name: 'Ani Wijaya', email: 'ani@email.com', status: 'under_review', appliedAt: '2026-01-16' },
-  { id: '3', name: 'Rudi Hartono', email: 'rudi@email.com', status: 'interview', appliedAt: '2026-01-15' },
-]
 
 const statusConfig: Record<JobStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'success' | 'warning' | 'outline' }> = {
   draft: { label: 'Draft', variant: 'secondary' },
@@ -86,7 +81,15 @@ export default function JobDetailPage() {
     enabled: !!id,
   })
 
+  // Fetch applications for this job
+  const { data: applicationsData } = useQuery({
+    queryKey: ['job-applications', id],
+    queryFn: () => candidatesApi.getByJob(id!),
+    enabled: !!id,
+  })
+
   const job = jobData?.data
+  const applications = applicationsData?.data || []
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -379,39 +382,45 @@ export default function JobDetailPage() {
         <TabsContent value="applicants" className="mt-6">
           <Card>
             <CardContent className="pt-6">
-              {mockApplicants.length === 0 ? (
+              {applications.length === 0 ? (
                 <div className="text-center py-12">
                   <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500">Belum ada pelamar</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {mockApplicants.map((applicant) => (
-                    <div
-                      key={applicant.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                          <span className="text-sm font-medium text-gray-600">
-                            {applicant.name.charAt(0)}
-                          </span>
+                  {applications.map((application) => {
+                    const applicantName = application.applicant?.name || application.applicant?.full_name || 'Unknown'
+                    const applicantEmail = application.applicant?.email || 'N/A'
+                    const applicantInitial = applicantName.charAt(0).toUpperCase()
+                    
+                    return (
+                      <div
+                        key={application.id}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
+                            <span className="text-sm font-medium text-white">
+                              {applicantInitial}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-medium">{applicantName}</p>
+                            <p className="text-sm text-gray-500">{applicantEmail}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium">{applicant.name}</p>
-                          <p className="text-sm text-gray-500">{applicant.email}</p>
+                        <div className="flex items-center gap-3">
+                          <Badge variant="secondary">{application.current_status}</Badge>
+                          <Link to={`/candidates/${application.id}`}>
+                            <Button variant="outline" size="sm">
+                              Lihat Profil
+                            </Button>
+                          </Link>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <Badge variant="secondary">{applicant.status}</Badge>
-                        <Link to={`/candidates/${applicant.id}`}>
-                          <Button variant="outline" size="sm">
-                            Lihat Profil
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </CardContent>
