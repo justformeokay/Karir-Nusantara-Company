@@ -9,6 +9,8 @@ import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -42,6 +44,9 @@ import {
   Linkedin,
   Globe,
   Github,
+  MapPin,
+  Video,
+  MessageCircle,
 } from 'lucide-react'
 import { cn, formatDate, getInitials, getAvatarUrl } from '@/lib/utils'
 import { candidatesApi } from '@/api/candidates'
@@ -92,6 +97,16 @@ export default function CandidateDetailPage() {
   const [showStatusDialog, setShowStatusDialog] = useState(false)
   const [newStatus, setNewStatus] = useState<ApplicationStatus>('submitted')
   const [statusNote, setStatusNote] = useState('')
+  
+  // Interview scheduling state
+  const [interviewDate, setInterviewDate] = useState('')
+  const [interviewTime, setInterviewTime] = useState('')
+  const [interviewType, setInterviewType] = useState<'online' | 'offline' | 'whatsapp_notification'>('offline')
+  const [meetingPlatform, setMeetingPlatform] = useState('')
+  const [meetingLink, setMeetingLink] = useState('')
+  const [interviewAddress, setInterviewAddress] = useState('')
+  const [contactPerson, setContactPerson] = useState('')
+  const [contactPhone, setContactPhone] = useState('')
 
   // Fetch application data
   const { data: applicationData, isLoading, error } = useQuery({
@@ -102,14 +117,27 @@ export default function CandidateDetailPage() {
 
   const application = applicationData?.data
 
+  // Reset interview form
+  const resetInterviewForm = () => {
+    setInterviewDate('')
+    setInterviewTime('')
+    setInterviewType('offline')
+    setMeetingPlatform('')
+    setMeetingLink('')
+    setInterviewAddress('')
+    setContactPerson('')
+    setContactPhone('')
+    setStatusNote('')
+  }
+
   // Update status mutation
   const updateStatusMutation = useMutation({
-    mutationFn: (data: { status: ApplicationStatus; notes?: string }) =>
+    mutationFn: (data: Parameters<typeof candidatesApi.updateStatus>[1]) =>
       candidatesApi.updateStatus(id!, data),
     onSuccess: () => {
       toast.success('Status kandidat berhasil diperbarui!')
       setShowStatusDialog(false)
-      setStatusNote('')
+      resetInterviewForm()
       queryClient.invalidateQueries({ queryKey: ['application', id] })
       queryClient.invalidateQueries({ queryKey: ['applications'] })
     },
@@ -119,10 +147,48 @@ export default function CandidateDetailPage() {
   })
 
   const handleUpdateStatus = () => {
-    updateStatusMutation.mutate({
+    // Build the request payload
+    const payload: Parameters<typeof candidatesApi.updateStatus>[1] = {
       status: newStatus,
-      notes: statusNote || undefined,
-    })
+      note: statusNote || undefined,
+    }
+
+    // Add interview scheduling data if status is interview_scheduled
+    if (newStatus === 'interview_scheduled') {
+      // Validate required fields
+      if (!interviewDate || !interviewTime) {
+        toast.error('Tanggal dan waktu interview harus diisi')
+        return
+      }
+
+      // Combine date and time into ISO format
+      const scheduledAt = new Date(`${interviewDate}T${interviewTime}:00`).toISOString()
+      payload.scheduled_at = scheduledAt
+      payload.interview_type = interviewType
+
+      if (interviewType === 'online') {
+        if (!meetingLink) {
+          toast.error('Link meeting harus diisi untuk interview online')
+          return
+        }
+        payload.meeting_link = meetingLink
+        payload.meeting_platform = meetingPlatform || undefined
+      } else if (interviewType === 'offline') {
+        if (!interviewAddress) {
+          toast.error('Alamat interview harus diisi untuk interview offline')
+          return
+        }
+        payload.interview_address = interviewAddress
+        payload.scheduled_location = interviewAddress
+      }
+      // For whatsapp_notification, the candidate will be contacted via WhatsApp
+
+      if (contactPerson) payload.contact_person = contactPerson
+      if (contactPhone) payload.contact_phone = contactPhone
+      if (statusNote) payload.scheduled_notes = statusNote
+    }
+
+    updateStatusMutation.mutate(payload)
   }
 
   // Loading state
@@ -604,6 +670,49 @@ export default function CandidateDetailPage() {
                         {event.note && (
                           <p className="text-sm text-gray-500">{event.note}</p>
                         )}
+                        {/* Show interview details if this is an interview_scheduled event */}
+                        {event.status === 'interview_scheduled' && event.scheduled_at && (
+                          <div className="mt-2 p-2 bg-purple-50 rounded-lg border border-purple-200 text-sm">
+                            <div className="flex items-center gap-2 text-purple-700 font-medium mb-1">
+                              <Calendar className="w-3 h-3" />
+                              Detail Interview
+                            </div>
+                            <div className="text-gray-600 space-y-1">
+                              <p>📅 {new Date(event.scheduled_at).toLocaleDateString('id-ID', { 
+                                weekday: 'long', 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}</p>
+                              {event.interview_type === 'online' && (
+                                <>
+                                  <p>🎥 Interview Online{event.meeting_platform ? ` via ${event.meeting_platform.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}` : ''}</p>
+                                  {event.meeting_link && (
+                                    <p>
+                                      🔗 <a href={event.meeting_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                        Link Meeting
+                                      </a>
+                                    </p>
+                                  )}
+                                </>
+                              )}
+                              {event.interview_type === 'offline' && event.interview_address && (
+                                <p>📍 {event.interview_address}</p>
+                              )}
+                              {event.interview_type === 'whatsapp_notification' && (
+                                <p>📱 Detail akan diinformasikan via WhatsApp</p>
+                              )}
+                              {event.contact_person && (
+                                <p>👤 Contact: {event.contact_person}{event.contact_phone ? ` (${event.contact_phone})` : ''}</p>
+                              )}
+                              {event.scheduled_notes && (
+                                <p>📝 {event.scheduled_notes}</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         <p className="text-xs text-gray-400 mt-1">
                           {formatDate(event.created_at)}
                         </p>
@@ -618,8 +727,11 @@ export default function CandidateDetailPage() {
       </div>
 
       {/* Update Status Dialog */}
-      <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
-        <DialogContent>
+      <Dialog open={showStatusDialog} onOpenChange={(open) => {
+        setShowStatusDialog(open)
+        if (!open) resetInterviewForm()
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Ubah Status Kandidat</DialogTitle>
             <DialogDescription>
@@ -628,7 +740,7 @@ export default function CandidateDetailPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Status Baru</label>
+              <Label>Status Baru</Label>
               <Select value={newStatus} onValueChange={(v) => setNewStatus(v as ApplicationStatus)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -642,10 +754,163 @@ export default function CandidateDetailPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Interview Scheduling Section - Only show when status is interview_scheduled */}
+            {newStatus === 'interview_scheduled' && (
+              <div className="space-y-4 p-4 bg-gray-50 rounded-lg border">
+                <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Detail Jadwal Interview
+                </h4>
+                
+                {/* Date and Time */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Tanggal Interview *</Label>
+                    <Input
+                      type="date"
+                      value={interviewDate}
+                      onChange={(e) => setInterviewDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Waktu Interview *</Label>
+                    <Input
+                      type="time"
+                      value={interviewTime}
+                      onChange={(e) => setInterviewTime(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Interview Type */}
+                <div className="space-y-2">
+                  <Label>Tipe Pelaksanaan Interview *</Label>
+                  <Select value={interviewType} onValueChange={(v) => setInterviewType(v as typeof interviewType)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="offline">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4" />
+                          Offline (Tatap Muka)
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="online">
+                        <div className="flex items-center gap-2">
+                          <Video className="w-4 h-4" />
+                          Online (Video Call)
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="whatsapp_notification">
+                        <div className="flex items-center gap-2">
+                          <MessageCircle className="w-4 h-4" />
+                          Informasi via WhatsApp
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Online Interview Fields */}
+                {interviewType === 'online' && (
+                  <div className="space-y-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center gap-2 text-blue-700">
+                      <Video className="w-4 h-4" />
+                      <span className="text-sm font-medium">Detail Interview Online</span>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Platform Meeting</Label>
+                      <Select value={meetingPlatform} onValueChange={setMeetingPlatform}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Pilih platform" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="zoom">Zoom</SelectItem>
+                          <SelectItem value="google_meet">Google Meet</SelectItem>
+                          <SelectItem value="microsoft_teams">Microsoft Teams</SelectItem>
+                          <SelectItem value="other">Lainnya</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Link Meeting *</Label>
+                      <Input
+                        type="url"
+                        placeholder="https://zoom.us/j/... atau https://meet.google.com/..."
+                        value={meetingLink}
+                        onChange={(e) => setMeetingLink(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Offline Interview Fields */}
+                {interviewType === 'offline' && (
+                  <div className="space-y-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2 text-green-700">
+                      <MapPin className="w-4 h-4" />
+                      <span className="text-sm font-medium">Detail Interview Offline</span>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Alamat Lengkap Interview *</Label>
+                      <Textarea
+                        placeholder="Contoh: Gedung A Lantai 5, Jl. Sudirman No. 123, Jakarta Selatan"
+                        value={interviewAddress}
+                        onChange={(e) => setInterviewAddress(e.target.value)}
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* WhatsApp Notification Info */}
+                {interviewType === 'whatsapp_notification' && (
+                  <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <div className="flex items-center gap-2 text-yellow-700">
+                      <MessageCircle className="w-4 h-4" />
+                      <span className="text-sm font-medium">Informasi via WhatsApp</span>
+                    </div>
+                    <p className="text-sm text-yellow-600 mt-2">
+                      Detail interview akan diinformasikan langsung ke kandidat melalui WhatsApp. 
+                      Pastikan nomor telepon kandidat sudah benar: <strong>{application?.applicant?.phone || 'Tidak tersedia'}</strong>
+                    </p>
+                  </div>
+                )}
+
+                {/* Contact Person */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Nama Contact Person</Label>
+                    <Input
+                      type="text"
+                      placeholder="Nama PIC Interview"
+                      value={contactPerson}
+                      onChange={(e) => setContactPerson(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nomor Telepon Contact Person</Label>
+                    <Input
+                      type="tel"
+                      placeholder="08xxxxxxxxxx"
+                      value={contactPhone}
+                      onChange={(e) => setContactPhone(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
-              <label className="text-sm font-medium">Catatan (Opsional)</label>
+              <Label>{newStatus === 'interview_scheduled' ? 'Catatan Tambahan' : 'Catatan'} (Opsional)</Label>
               <Textarea
-                placeholder="Tambahkan catatan tentang perubahan status ini..."
+                placeholder={newStatus === 'interview_scheduled' 
+                  ? "Informasi tambahan untuk kandidat (dress code, dokumen yang harus dibawa, dll.)"
+                  : "Tambahkan catatan tentang perubahan status ini..."
+                }
                 value={statusNote}
                 onChange={(e) => setStatusNote(e.target.value)}
                 rows={3}

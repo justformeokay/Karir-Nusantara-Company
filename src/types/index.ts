@@ -237,6 +237,12 @@ export interface Application {
     scheduled_at?: string
     scheduled_location?: string
     scheduled_notes?: string
+    interview_type?: 'online' | 'offline' | 'whatsapp_notification'
+    meeting_link?: string
+    meeting_platform?: string
+    interview_address?: string
+    contact_person?: string
+    contact_phone?: string
     created_at: string
   }>
   status_history?: ApplicationStatusHistory[]

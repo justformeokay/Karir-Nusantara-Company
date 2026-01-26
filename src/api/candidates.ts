@@ -20,7 +20,16 @@ export interface ApplicationsParams {
 
 export interface UpdateStatusRequest {
   status: ApplicationStatus
-  notes?: string
+  note?: string
+  scheduled_at?: string
+  scheduled_location?: string
+  scheduled_notes?: string
+  interview_type?: 'online' | 'offline' | 'whatsapp_notification'
+  meeting_link?: string
+  meeting_platform?: string
+  interview_address?: string
+  contact_person?: string
+  contact_phone?: string
 }
 
 export const candidatesApi = {
