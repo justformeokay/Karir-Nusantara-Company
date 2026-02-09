@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -16,13 +16,14 @@ import {
 } from '@/components/ui/select'
 import { useAuthStore } from '@/stores/authStore'
 import { authApi } from '@/api/auth'
-import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Gift } from 'lucide-react'
 
 const registerSchema = z.object({
   companyName: z.string().min(2, 'Nama perusahaan minimal 2 karakter'),
   email: z.string().email('Email tidak valid'),
   phone: z.string().min(10, 'Nomor telepon tidak valid'),
   industry: z.string().min(1, 'Pilih industri'),
+  referralCode: z.string().optional(),
   password: z.string().min(6, 'Password minimal 6 karakter'),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -47,18 +48,35 @@ const industries = [
 
 export default function RegisterPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { setAuth } = useAuthStore()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  
+  // Get referral code from URL (?ref=CODE or ?referral=CODE)
+  const urlReferralCode = searchParams.get('ref') || searchParams.get('referral') || ''
 
   const {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      referralCode: urlReferralCode,
+    },
   })
+
+  const referralCode = watch('referralCode')
+
+  // Set referral code from URL on mount
+  useEffect(() => {
+    if (urlReferralCode) {
+      setValue('referralCode', urlReferralCode)
+    }
+  }, [urlReferralCode, setValue])
 
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true)
@@ -71,6 +89,7 @@ export default function RegisterPage() {
         phone: data.phone,
         role: 'company',
         company_name: data.companyName,
+        referral_code: data.referralCode || undefined,
       })
 
       if (!response.success) {
@@ -158,6 +177,28 @@ export default function RegisterPage() {
           </Select>
           {errors.industry && (
             <p className="text-sm text-red-500">{errors.industry.message}</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="referralCode" className="flex items-center gap-2">
+            <Gift className="w-4 h-4 text-primary" />
+            Kode Referral (Opsional)
+          </Label>
+          <Input
+            id="referralCode"
+            placeholder="Masukkan kode referral dari partner"
+            {...register('referralCode')}
+            className={referralCode ? 'border-green-500 bg-green-50' : ''}
+          />
+          <p className="text-xs text-gray-500">
+            Jika Anda direferensikan oleh partner kami, masukkan kode referral mereka
+          </p>
+          {referralCode && (
+            <p className="text-xs text-green-600 flex items-center gap-1">
+              <Gift className="w-3 h-3" />
+              Kode referral akan digunakan: {referralCode}
+            </p>
           )}
         </div>
 

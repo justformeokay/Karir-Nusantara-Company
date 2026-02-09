@@ -362,6 +362,7 @@ export interface RegisterData {
   phone?: string
   role: 'company'
   company_name: string
+  referral_code?: string
 }
 
 export interface AuthResponse {
