@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import RichTextEditor from '@/components/ui/rich-text-editor'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SalaryInput } from '@/components/ui/salary-input'
 import { quotaApi } from '@/api/quota'
@@ -49,6 +50,7 @@ const jobFormSchema = z.object({
   salary_min: z.number().optional().or(z.nan()).transform(val => val === undefined || Number.isNaN(val) ? undefined : val),
   salary_max: z.number().optional().or(z.nan()).transform(val => val === undefined || Number.isNaN(val) ? undefined : val),
   salary_visible: z.boolean().default(true),
+  salary_fixed: z.boolean().default(false),
   salary_currency: z.string().default('IDR'),
   skills: z.array(z.string()).default([]),
   responsibilities: z.string().optional(),
@@ -146,6 +148,8 @@ export default function JobFormPage() {
     handleSubmit,
     setValue,
     watch,
+    reset,
+    control,
     formState: { errors },
   } = useForm<JobFormData>({
     resolver: zodResolver(jobFormSchema),
@@ -157,14 +161,18 @@ export default function JobFormPage() {
       location: '',
       description: '',
       requirements: '',
+      responsibilities: '',
+      benefits: '',
       experience_level: '',
       salary_visible: true,
+      salary_fixed: false,
       salary_currency: 'IDR',
       skills: [],
     },
   })
 
   const salaryVisible = watch('salary_visible')
+  const salaryFixed = watch('salary_fixed')
   const watchedCategory = watch('category')
   const watchedEmploymentType = watch('employment_type')
   const watchedWorkType = watch('work_type')
@@ -183,21 +191,29 @@ export default function JobFormPage() {
         locationString = job.location
       }
       
-      setValue('title', job.title || '')
-      setValue('description', job.description || '')
-      setValue('requirements', job.requirements || '')
-      setValue('location', locationString)
-      setValue('salary_min', job.salary_min || 0)
-      setValue('salary_max', job.salary_max || 0)
-      setValue('salary_currency', job.salary_currency || 'IDR')
-      setValue('salary_visible', job.salary_visible ?? true)
-      setValue('category', job.category || '')
-      setValue('employment_type', job.job_type || '')
-      setValue('work_type', job.location?.is_remote ? 'remote' : 'onsite')
-      setValue('experience_level', job.experience_level || '')
-      setValue('skills', job.skills || [])
+      // Use reset to update all fields at once
+      reset({
+        title: job.title || '',
+        description: job.description || '',
+        requirements: job.requirements || '',
+        responsibilities: job.responsibilities || '',
+        benefits: job.benefits || '',
+        location: locationString,
+        salary_min: job.salary_min,
+        salary_max: job.salary_max,
+        salary_currency: job.salary_currency || 'IDR',
+        salary_visible: job.salary_visible ?? true,
+        salary_fixed: job.salary_fixed || false,
+        category: job.category || '',
+        employment_type: job.job_type || ('' as any),
+        work_type: (job.location?.is_remote ? 'remote' : 'onsite') as any,
+        experience_level: job.experience_level || '',
+        skills: job.skills || [],
+        application_email: job.application_email || '',
+        expires_at: job.application_deadline || '',
+      })
     }
-  }, [isEdit, jobData, setValue])
+  }, [isEdit, jobData, reset])
 
   // Handle form validation errors
   const onFormError = (errors: any) => {
@@ -629,31 +645,77 @@ export default function JobFormPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="description">Deskripsi Pekerjaan *</Label>
-              <Textarea
-                id="description"
-                placeholder="Jelaskan tanggung jawab, tugas sehari-hari, dan ekspektasi untuk posisi ini..."
-                rows={6}
-                {...register('description')}
-                className={errors.description ? 'border-red-500' : ''}
+              <Controller
+                name="description"
+                control={control}
+                render={({ field }) => (
+                  <RichTextEditor
+                    id="description"
+                    label="Deskripsi Pekerjaan"
+                    placeholder="Jelaskan tanggung jawab, tugas sehari-hari, dan ekspektasi untuk posisi ini..."
+                    value={field.value}
+                    onChange={field.onChange}
+                    required
+                    error={!!errors.description}
+                    errorMessage={errors.description?.message}
+                  />
+                )}
               />
-              {errors.description && (
-                <p className="text-sm text-red-500">{errors.description.message}</p>
-              )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="requirements">Persyaratan *</Label>
-              <Textarea
-                id="requirements"
-                placeholder="Sebutkan kualifikasi, skill, pengalaman, dan pendidikan yang dibutuhkan..."
-                rows={6}
-                {...register('requirements')}
-                className={errors.requirements ? 'border-red-500' : ''}
+              <Controller
+                name="requirements"
+                control={control}
+                render={({ field }) => (
+                  <RichTextEditor
+                    id="requirements"
+                    label="Persyaratan"
+                    placeholder="Sebutkan kualifikasi, skill, pengalaman, dan pendidikan yang dibutuhkan..."
+                    value={field.value}
+                    onChange={field.onChange}
+                    required
+                    error={!!errors.requirements}
+                    errorMessage={errors.requirements?.message}
+                  />
+                )}
               />
-              {errors.requirements && (
-                <p className="text-sm text-red-500">{errors.requirements.message}</p>
-              )}
+            </div>
+
+            <div className="space-y-2">
+              <Controller
+                name="responsibilities"
+                control={control}
+                render={({ field }) => (
+                  <RichTextEditor
+                    id="responsibilities"
+                    label="Tanggung Jawab"
+                    placeholder="Jelaskan tanggung jawab utama dan tugas-tugas yang akan dikerjakan..."
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={!!errors.responsibilities}
+                    errorMessage={errors.responsibilities?.message}
+                  />
+                )}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Controller
+                name="benefits"
+                control={control}
+                render={({ field }) => (
+                  <RichTextEditor
+                    id="benefits"
+                    label="Benefit & Fasilitas"
+                    placeholder="Sebutkan benefit, fasilitas, dan keuntungan yang akan didapat karyawan..."
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={!!errors.benefits}
+                    errorMessage={errors.benefits?.message}
+                  />
+                )}
+              />
             </div>
           </CardContent>
         </Card>
@@ -679,25 +741,50 @@ export default function JobFormPage() {
               </Label>
             </div>
 
-            {salaryVisible && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="salary_min">Gaji Minimum (Rp)</Label>
-                  <SalaryInput
-                    id="salary_min"
-                    placeholder="contoh: 8000000"
-                    {...register('salary_min', { valueAsNumber: true })}
-                  />
-                </div>
+            <div className="flex items-center gap-2 mb-4">
+              <input
+                type="checkbox"
+                id="salary_fixed"
+                {...register('salary_fixed')}
+                className="w-4 h-4 rounded border-gray-300"
+              />
+              <Label htmlFor="salary_fixed" className="font-normal">
+                Gaji Fixed
+              </Label>
+            </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="salary_max">Gaji Maksimum (Rp)</Label>
-                  <SalaryInput
-                    id="salary_max"
-                    placeholder="contoh: 12000000"
-                    {...register('salary_max', { valueAsNumber: true })}
-                  />
-                </div>
+            {salaryVisible && (
+              <div>
+                {salaryFixed ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="salary_min">Gaji Fixed (Rp)</Label>
+                    <SalaryInput
+                      id="salary_min"
+                      placeholder="contoh: 10000000"
+                      {...register('salary_min', { valueAsNumber: true })}
+                    />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="salary_min">Gaji Minimum (Rp)</Label>
+                      <SalaryInput
+                        id="salary_min"
+                        placeholder="contoh: 8000000"
+                        {...register('salary_min', { valueAsNumber: true })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="salary_max">Gaji Maksimum (Rp)</Label>
+                      <SalaryInput
+                        id="salary_max"
+                        placeholder="contoh: 12000000"
+                        {...register('salary_max', { valueAsNumber: true })}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

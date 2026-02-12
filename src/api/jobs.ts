@@ -132,6 +132,7 @@ export const jobsApi = {
     // Transform frontend data to backend format
     const backendData = {
       title: data.title,
+      category: data.category,
       description: data.description,
       requirements: data.requirements,
       responsibilities: data.responsibilities,
@@ -148,6 +149,7 @@ export const jobsApi = {
       salary_max: data.salary_max,
       salary_currency: data.salary_currency || 'IDR',
       is_salary_visible: data.salary_visible,
+      is_salary_fixed: data.salary_fixed,
       application_deadline: data.expires_at,
       skills: data.skills || [],
       status: 'active', // Publish directly
@@ -168,6 +170,7 @@ export const jobsApi = {
     // Transform frontend data to backend format
     const backendData = {
       title: data.title,
+      category: data.category,
       description: data.description,
       requirements: data.requirements,
       responsibilities: data.responsibilities,
@@ -184,6 +187,7 @@ export const jobsApi = {
       salary_max: data.salary_max,
       salary_currency: data.salary_currency || 'IDR',
       is_salary_visible: data.salary_visible,
+      is_salary_fixed: data.salary_fixed,
       application_deadline: data.expires_at,
       skills: data.skills || [],
       status: 'draft', // Save as draft - doesn't consume quota
@@ -201,7 +205,38 @@ export const jobsApi = {
 
   // Update job (company only)
   update: async (id: number | string, data: Partial<JobFormData>): Promise<ApiResponse<Job>> => {
-    const response = await api.put<ApiResponse<any>>(`/jobs/${id}`, data)
+    // Transform frontend data to backend format
+    const backendData: any = {}
+    
+    if (data.title) backendData.title = data.title
+    if (data.category) backendData.category = data.category
+    if (data.description) backendData.description = data.description  
+    if (data.requirements) backendData.requirements = data.requirements
+    if (data.responsibilities) backendData.responsibilities = data.responsibilities
+    if (data.benefits) backendData.benefits = data.benefits
+    if (data.location) {
+      // Split location into city and province if contains comma, otherwise use as city
+      backendData.city = data.location.includes(',') ? data.location.split(',')[0].trim() : data.location
+      backendData.province = data.location.includes(',') ? data.location.split(',')[1].trim() : data.location
+    }
+    if (data.work_type) {
+      // Map work_type to is_remote
+      backendData.is_remote = data.work_type === 'remote'
+    }
+    if (data.employment_type) {
+      // Map employment_type to job_type  
+      backendData.job_type = data.employment_type
+    }
+    if (data.experience_level) backendData.experience_level = data.experience_level
+    if (data.salary_min !== undefined) backendData.salary_min = data.salary_min
+    if (data.salary_max !== undefined) backendData.salary_max = data.salary_max
+    if (data.salary_currency) backendData.salary_currency = data.salary_currency
+    if (data.salary_visible !== undefined) backendData.is_salary_visible = data.salary_visible
+    if (data.salary_fixed !== undefined) backendData.is_salary_fixed = data.salary_fixed
+    if (data.expires_at) backendData.application_deadline = data.expires_at
+    if (data.skills) backendData.skills = data.skills
+    
+    const response = await api.put<ApiResponse<any>>(`/jobs/${id}`, backendData)
     if (response.data && response.success) {
       return {
         ...response,

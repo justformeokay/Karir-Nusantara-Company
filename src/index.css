@@ -58,3 +58,86 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
 }
+
+/* Rich Text Editor Styling */
+.rich-text-editor .ql-toolbar {
+  border-top-left-radius: var(--radius);
+  border-top-right-radius: var(--radius);
+  background: hsl(var(--muted) / 0.5);
+}
+
+.rich-text-editor .ql-container {
+  border-bottom-left-radius: var(--radius);
+  border-bottom-right-radius: var(--radius);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.rich-text-editor .ql-editor {
+  line-height: 1.6;
+  font-family: inherit;
+}
+
+.rich-text-editor .ql-editor.ql-blank::before {
+  color: hsl(var(--muted-foreground));
+  font-style: normal;
+}
+
+.rich-text-editor .ql-toolbar .ql-stroke {
+  stroke: hsl(var(--foreground));
+}
+
+.rich-text-editor .ql-toolbar .ql-fill {
+  fill: hsl(var(--foreground));
+}
+
+.rich-text-editor .ql-toolbar .ql-picker-label:hover,
+.rich-text-editor .ql-toolbar .ql-picker-item:hover {
+  color: hsl(var(--primary));
+}
+
+.rich-text-editor .ql-toolbar button:hover,
+.rich-text-editor .ql-toolbar button:focus {
+  color: hsl(var(--primary));
+}
+
+.rich-text-editor .ql-toolbar .ql-active {
+  color: hsl(var(--primary));
+}
+
+.rich-text-editor .ql-editor strong {
+  font-weight: 600;
+}
+
+.rich-text-editor .ql-editor h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.rich-text-editor .ql-editor h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.rich-text-editor .ql-editor h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.rich-text-editor .ql-editor ul,
+.rich-text-editor .ql-editor ol {
+  margin-left: 1.5rem;
+}
+
+.rich-text-editor .ql-editor blockquote {
+  border-left: 4px solid hsl(var(--border));
+  margin: 0;
+  padding-left: 1rem;
+  font-style: italic;
+  background: hsl(var(--muted) / 0.3);
+  padding: 0.75rem 1rem;
+  border-radius: 0.25rem;
+}

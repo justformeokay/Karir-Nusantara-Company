@@ -78,6 +78,7 @@ export interface Job {
   salary_max?: number
   salary_currency?: string
   salary_visible?: boolean
+  salary_fixed?: boolean
   category?: string
   skills?: string[]
   application_url?: string
@@ -109,6 +110,7 @@ export interface JobFormData {
   salary_max?: number
   salary_currency?: string
   salary_visible?: boolean
+  salary_fixed?: boolean
   application_email?: string
   expires_at?: string
   skills?: string[]

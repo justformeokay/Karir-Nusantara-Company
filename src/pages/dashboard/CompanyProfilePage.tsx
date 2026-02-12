@@ -12,6 +12,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -28,6 +38,7 @@ import {
   Clock,
   XCircle,
   AlertCircle,
+  AlertTriangle,
   FileText,
   Upload,
 } from 'lucide-react'
@@ -125,6 +136,8 @@ export default function CompanyProfilePage() {
     nib?: string
   }>({})
   const [isDocumentsComplete, setIsDocumentsComplete] = useState(false)
+  const [showReVerificationDialog, setShowReVerificationDialog] = useState(false)
+  const [pendingFormData, setPendingFormData] = useState<ProfileFormData | null>(null)
 
   // Check if all documents are uploaded
   const checkDocumentsComplete = () => {
@@ -278,7 +291,22 @@ export default function CompanyProfilePage() {
     }
   }, [company, setValue])
 
+  // Check if company is currently verified
+  const isCompanyVerified = companyData.verification_status === 'verified' || companyData.is_verified
+
   const onSubmit = async (data: ProfileFormData) => {
+    // If company is verified, show confirmation dialog first
+    if (isCompanyVerified) {
+      setPendingFormData(data)
+      setShowReVerificationDialog(true)
+      return
+    }
+    
+    // Proceed with submission
+    await submitProfileUpdate(data)
+  }
+
+  const submitProfileUpdate = async (data: ProfileFormData) => {
     setIsLoading(true)
     try {
       const updateData: any = {
@@ -329,7 +357,12 @@ export default function CompanyProfilePage() {
         queryClient.invalidateQueries({ queryKey: ['profile'] })
         queryClient.invalidateQueries({ queryKey: ['auth', 'me'] })
         
-        toast.success('Profil perusahaan berhasil diperbarui!')
+        // Show appropriate success message based on previous status
+        if (isCompanyVerified) {
+          toast.success('Profil berhasil diperbarui! Status perusahaan akan diverifikasi ulang oleh Admin.')
+        } else {
+          toast.success('Profil perusahaan berhasil diperbarui!')
+        }
       } else {
         toast.error('Gagal memperbarui profil')
       }
@@ -338,6 +371,14 @@ export default function CompanyProfilePage() {
       console.error(error)
     } finally {
       setIsLoading(false)
+      setPendingFormData(null)
+    }
+  }
+
+  const handleConfirmReVerification = async () => {
+    setShowReVerificationDialog(false)
+    if (pendingFormData) {
+      await submitProfileUpdate(pendingFormData)
     }
   }
 
@@ -424,6 +465,27 @@ export default function CompanyProfilePage() {
         </CardContent>
       </Card>
 
+      {/* Warning for verified companies */}
+      {isCompanyVerified && (
+        <Card className="border-2 border-amber-300 bg-amber-50">
+          <CardContent className="py-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-amber-800">
+                  Perhatian: Perubahan Data Memerlukan Verifikasi Ulang
+                </p>
+                <p className="text-sm text-amber-700 mt-1">
+                  Perusahaan Anda sudah terverifikasi. Jika Anda mengubah informasi profil, 
+                  status verifikasi akan direset dan Anda tidak dapat memposting lowongan baru 
+                  sampai diverifikasi ulang oleh Super Admin (1-2 hari kerja).
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Logo Card */}
@@ -436,7 +498,7 @@ export default function CompanyProfilePage() {
             </CardHeader>
             <CardContent className="flex flex-col items-center">
               <div className="relative">
-                <Avatar className="w-32 h-32">
+                <Avatar className="w-32 h-32 border border-gray-300">
                   <AvatarImage src={logoPreview || companyData.company_logo_url || undefined} />
                   <AvatarFallback className="bg-primary text-white text-3xl">
                     {getInitials(companyData.company_name || 'CN')}
@@ -919,6 +981,49 @@ export default function CompanyProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Re-Verification Confirmation Dialog */}
+      <AlertDialog open={showReVerificationDialog} onOpenChange={setShowReVerificationDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-100 rounded-full">
+                <AlertTriangle className="w-6 h-6 text-amber-600" />
+              </div>
+              <AlertDialogTitle>Konfirmasi Perubahan Profil</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-left space-y-3 pt-2">
+              <p>
+                Perusahaan Anda saat ini sudah <strong className="text-green-600">terverifikasi</strong>. 
+                Jika Anda mengubah informasi profil, status verifikasi akan direset dan perusahaan 
+                akan masuk ke antrian verifikasi ulang oleh Super Admin.
+              </p>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm">
+                <strong>Dampak perubahan:</strong>
+                <ul className="list-disc list-inside mt-1 space-y-1">
+                  <li>Status perusahaan akan berubah menjadi "Menunggu Verifikasi"</li>
+                  <li>Anda <strong>tidak dapat</strong> memposting lowongan baru sampai diverifikasi ulang</li>
+                  <li>Proses verifikasi membutuhkan waktu 1-2 hari kerja</li>
+                </ul>
+              </div>
+              <p className="text-gray-600">
+                Apakah Anda yakin ingin melanjutkan perubahan?
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingFormData(null)}>
+              Batal
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmReVerification}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              Ya, Lanjutkan Perubahan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
