@@ -55,10 +55,12 @@ function normalizeJob(data: any): Job {
     location: location,
     job_type: data.job_type || '',
     experience_level: data.experience_level,
-    salary_min: data.salary_min,
-    salary_max: data.salary_max,
-    salary_currency: data.salary_currency,
-    salary_visible: data.salary_visible,
+    // Prioritize raw salary fields, fallback to nested salary object
+    salary_min: data.salary_min ?? data.salary?.min,
+    salary_max: data.salary_max ?? data.salary?.max,
+    salary_currency: data.salary_currency || data.salary?.currency || 'IDR',
+    salary_visible: data.is_salary_visible ?? data.salary_visible ?? !!data.salary,
+    salary_fixed: data.is_salary_fixed ?? data.salary_fixed ?? false,
     category: data.category,
     // Ensure skills is array of strings
     skills: Array.isArray(data.skills) 
@@ -130,7 +132,7 @@ export const jobsApi = {
   // Create a new job (company only)
   create: async (data: JobFormData): Promise<ApiResponse<Job>> => {
     // Transform frontend data to backend format
-    const backendData = {
+    const backendData: any = {
       title: data.title,
       category: data.category,
       description: data.description,
@@ -145,14 +147,20 @@ export const jobsApi = {
       // Map employment_type to job_type
       job_type: data.employment_type,
       experience_level: data.experience_level,
-      salary_min: data.salary_min,
-      salary_max: data.salary_max,
       salary_currency: data.salary_currency || 'IDR',
       is_salary_visible: data.salary_visible,
       is_salary_fixed: data.salary_fixed,
       application_deadline: data.expires_at,
       skills: data.skills || [],
       status: 'active', // Publish directly
+    }
+    
+    // Only add salary values if they're valid numbers (not NaN)
+    if (data.salary_min !== undefined && data.salary_min !== null && !isNaN(data.salary_min)) {
+      backendData.salary_min = data.salary_min
+    }
+    if (data.salary_max !== undefined && data.salary_max !== null && !isNaN(data.salary_max)) {
+      backendData.salary_max = data.salary_max
     }
     
     const response = await api.post<ApiResponse<any>>('/jobs', backendData)
@@ -168,7 +176,7 @@ export const jobsApi = {
   // Create a new job as DRAFT (no quota check, for pending payment)
   createDraft: async (data: JobFormData): Promise<ApiResponse<Job>> => {
     // Transform frontend data to backend format
-    const backendData = {
+    const backendData: any = {
       title: data.title,
       category: data.category,
       description: data.description,
@@ -183,14 +191,20 @@ export const jobsApi = {
       // Map employment_type to job_type
       job_type: data.employment_type,
       experience_level: data.experience_level,
-      salary_min: data.salary_min,
-      salary_max: data.salary_max,
       salary_currency: data.salary_currency || 'IDR',
       is_salary_visible: data.salary_visible,
       is_salary_fixed: data.salary_fixed,
       application_deadline: data.expires_at,
       skills: data.skills || [],
       status: 'draft', // Save as draft - doesn't consume quota
+    }
+    
+    // Only add salary values if they're valid numbers (not NaN)
+    if (data.salary_min !== undefined && data.salary_min !== null && !isNaN(data.salary_min)) {
+      backendData.salary_min = data.salary_min
+    }
+    if (data.salary_max !== undefined && data.salary_max !== null && !isNaN(data.salary_max)) {
+      backendData.salary_max = data.salary_max
     }
     
     const response = await api.post<ApiResponse<any>>('/jobs', backendData)
@@ -228,13 +242,29 @@ export const jobsApi = {
       backendData.job_type = data.employment_type
     }
     if (data.experience_level) backendData.experience_level = data.experience_level
-    if (data.salary_min !== undefined) backendData.salary_min = data.salary_min
-    if (data.salary_max !== undefined) backendData.salary_max = data.salary_max
+    // Handle salary - make sure we don't send NaN values
+    if (data.salary_min !== undefined && data.salary_min !== null && !isNaN(data.salary_min)) {
+      backendData.salary_min = data.salary_min
+    }
+    if (data.salary_max !== undefined && data.salary_max !== null && !isNaN(data.salary_max)) {
+      backendData.salary_max = data.salary_max
+    }
     if (data.salary_currency) backendData.salary_currency = data.salary_currency
     if (data.salary_visible !== undefined) backendData.is_salary_visible = data.salary_visible
     if (data.salary_fixed !== undefined) backendData.is_salary_fixed = data.salary_fixed
     if (data.expires_at) backendData.application_deadline = data.expires_at
     if (data.skills) backendData.skills = data.skills
+    
+    console.log('🔄 Transforming update data:', {
+      frontend: data,
+      backend: backendData,
+      salaryCheck: {
+        salary_min: data.salary_min,
+        salary_min_isNaN: isNaN(data.salary_min as any),
+        salary_max: data.salary_max,
+        salary_max_isNaN: isNaN(data.salary_max as any),
+      }
+    })
     
     const response = await api.put<ApiResponse<any>>(`/jobs/${id}`, backendData)
     if (response.data && response.success) {

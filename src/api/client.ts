@@ -49,7 +49,16 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'An error occurred' }))
-      throw new Error(error.message || `HTTP ${response.status}`)
+      console.error('🔴 API Error Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url,
+        error: error,
+        errorMessage: error?.error?.message || error?.message,
+        errorCode: error?.error?.code,
+        errorDetails: JSON.stringify(error, null, 2)
+      })
+      throw new Error(error?.error?.message || error?.message || `HTTP ${response.status}`)
     }
 
     // Handle 204 No Content response

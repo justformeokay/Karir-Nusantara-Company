@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import RichTextEditor from '@/components/ui/rich-text-editor'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -147,6 +147,7 @@ export default function JobFormPage() {
     register,
     handleSubmit,
     setValue,
+    getValues,
     watch,
     reset,
     control,
@@ -183,6 +184,14 @@ export default function JobFormPage() {
     if (isEdit && jobData?.data) {
       const job = jobData.data
       
+      console.log('🔍 Pre-filling job data:', {
+        salary_min: job.salary_min,
+        salary_max: job.salary_max,
+        salary_fixed: job.salary_fixed,
+        salary_visible: job.salary_visible,
+        category: job.category,
+      })
+      
       // Reconstruct location string from object
       let locationString = ''
       if (typeof job.location === 'object' && job.location !== null) {
@@ -199,11 +208,11 @@ export default function JobFormPage() {
         responsibilities: job.responsibilities || '',
         benefits: job.benefits || '',
         location: locationString,
-        salary_min: job.salary_min,
-        salary_max: job.salary_max,
+        salary_min: job.salary_min ?? undefined,
+        salary_max: job.salary_max ?? undefined,
         salary_currency: job.salary_currency || 'IDR',
         salary_visible: job.salary_visible ?? true,
-        salary_fixed: job.salary_fixed || false,
+        salary_fixed: job.salary_fixed ?? false,
         category: job.category || '',
         employment_type: job.job_type || ('' as any),
         work_type: (job.location?.is_remote ? 'remote' : 'onsite') as any,
@@ -214,6 +223,17 @@ export default function JobFormPage() {
       })
     }
   }, [isEdit, jobData, reset])
+
+  // Handle salary_fixed toggle - clear salary_max when fixed is true
+  useEffect(() => {
+    if (salaryFixed) {
+      // When salary_fixed is true, clear salary_max
+      const currentSalaryMax = getValues('salary_max')
+      if (currentSalaryMax !== undefined && currentSalaryMax !== null) {
+        setValue('salary_max', undefined)
+      }
+    }
+  }, [salaryFixed, setValue, getValues])
 
   // Handle form validation errors
   const onFormError = (errors: any) => {
@@ -267,6 +287,12 @@ export default function JobFormPage() {
       if (!formData) {
         throw new Error('Form data tidak ditemukan')
       }
+      
+      console.log('📤 Sending job data:', {
+        isEdit,
+        id,
+        formData,
+      })
       
       let response
       if (isEdit && id) {
@@ -758,29 +784,59 @@ export default function JobFormPage() {
                 {salaryFixed ? (
                   <div className="space-y-2">
                     <Label htmlFor="salary_min">Gaji Fixed (Rp)</Label>
-                    <SalaryInput
-                      id="salary_min"
-                      placeholder="contoh: 10000000"
-                      {...register('salary_min', { valueAsNumber: true })}
+                    <Controller
+                      name="salary_min"
+                      control={control}
+                      render={({ field }) => (
+                        <SalaryInput
+                          id="salary_min"
+                          placeholder="contoh: 10000000"
+                          value={field.value || ''}
+                          onChange={(e) => {
+                            const numValue = parseInt(e.target.value, 10)
+                            field.onChange(isNaN(numValue) ? undefined : numValue)
+                          }}
+                        />
+                      )}
                     />
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="salary_min">Gaji Minimum (Rp)</Label>
-                      <SalaryInput
-                        id="salary_min"
-                        placeholder="contoh: 8000000"
-                        {...register('salary_min', { valueAsNumber: true })}
+                      <Controller
+                        name="salary_min"
+                        control={control}
+                        render={({ field }) => (
+                          <SalaryInput
+                            id="salary_min"
+                            placeholder="contoh: 8000000"
+                            value={field.value || ''}
+                            onChange={(e) => {
+                              const numValue = parseInt(e.target.value, 10)
+                              field.onChange(isNaN(numValue) ? undefined : numValue)
+                            }}
+                          />
+                        )}
                       />
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="salary_max">Gaji Maksimum (Rp)</Label>
-                      <SalaryInput
-                        id="salary_max"
-                        placeholder="contoh: 12000000"
-                        {...register('salary_max', { valueAsNumber: true })}
+                      <Controller
+                        name="salary_max"
+                        control={control}
+                        render={({ field }) => (
+                          <SalaryInput
+                            id="salary_max"
+                            placeholder="contoh: 12000000"
+                            value={field.value || ''}
+                            onChange={(e) => {
+                              const numValue = parseInt(e.target.value, 10)
+                              field.onChange(isNaN(numValue) ? undefined : numValue)
+                            }}
+                          />
+                        )}
                       />
                     </div>
                   </div>
