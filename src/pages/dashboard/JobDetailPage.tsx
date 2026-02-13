@@ -314,9 +314,10 @@ export default function JobDetailPage() {
                   <CardTitle>Deskripsi Pekerjaan</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="prose prose-sm max-w-none whitespace-pre-line text-gray-700">
-                    {job.description}
-                  </div>
+                  <div 
+                    className="prose prose-sm dark:prose-invert max-w-none text-gray-700"
+                    dangerouslySetInnerHTML={{ __html: job.description }}
+                  />
                 </CardContent>
               </Card>
 
@@ -325,11 +326,40 @@ export default function JobDetailPage() {
                   <CardTitle>Persyaratan</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="prose prose-sm max-w-none whitespace-pre-line text-gray-700">
-                    {job.requirements}
-                  </div>
+                  <div 
+                    className="prose prose-sm dark:prose-invert max-w-none text-gray-700 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-2"
+                    dangerouslySetInnerHTML={{ __html: job.requirements }}
+                  />
                 </CardContent>
               </Card>
+
+              {job.responsibilities && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Tanggung Jawab</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div 
+                      className="prose prose-sm dark:prose-invert max-w-none text-gray-700 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-2"
+                      dangerouslySetInnerHTML={{ __html: job.responsibilities }}
+                    />
+                  </CardContent>
+                </Card>
+              )}
+
+              {job.benefits && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Manfaat</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div 
+                      className="prose prose-sm dark:prose-invert max-w-none text-gray-700 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-2"
+                      dangerouslySetInnerHTML={{ __html: job.benefits }}
+                    />
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Sidebar */}
