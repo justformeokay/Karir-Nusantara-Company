@@ -145,6 +145,10 @@ export interface Candidate {
   avatar_url?: string
   cv_url?: string
   created_at?: string
+  city?: string
+  province?: string
+  expected_salary_min?: number
+  expected_salary_max?: number
 }
 
 export interface Application {
@@ -161,6 +165,14 @@ export interface Application {
   created_at?: string
   updated_at?: string
   last_status_update?: string
+  cv_source?: 'built' | 'uploaded' // CV source: from system builder or uploaded document
+  uploaded_document?: {
+    id: number
+    name: string
+    url: string
+    file_size?: number
+    mime_type?: string
+  }
   job?: {
     id: number
     hash_id?: string

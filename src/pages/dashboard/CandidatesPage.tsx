@@ -34,6 +34,7 @@ import {
   Eye,
   FileText,
   Users,
+  FileUp,
 } from 'lucide-react'
 import { cn, formatDateShort, getInitials, getAvatarUrl } from '@/lib/utils'
 import { candidatesApi } from '@/api/candidates'
@@ -229,17 +230,27 @@ export default function CandidatesPage() {
                               Lihat Profil
                             </Link>
                           </DropdownMenuItem>
-                          {application.applicant?.cv_url && (
+                          {/* Show uploaded CV if available */}
+                          {application.uploaded_document && (
                             <DropdownMenuItem asChild>
                               <a 
-                                href={application.applicant.cv_url} 
+                                href={application.uploaded_document.url} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 className="flex items-center"
                               >
-                                <FileText className="w-4 h-4 mr-2" />
-                                Download CV
+                                <FileUp className="w-4 h-4 mr-2 text-blue-600" />
+                                Download CV Upload
                               </a>
+                            </DropdownMenuItem>
+                          )}
+                          {/* Show system CV link to detail page */}
+                          {application.cv_snapshot && (
+                            <DropdownMenuItem asChild>
+                              <Link to={`/candidates/${application.hash_id || application.id}`} className="flex items-center">
+                                <FileText className="w-4 h-4 mr-2 text-green-600" />
+                                Lihat CV Sistem
+                              </Link>
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>

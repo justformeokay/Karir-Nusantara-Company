@@ -47,6 +47,7 @@ import {
   MapPin,
   Video,
   MessageCircle,
+  FileUp,
 } from 'lucide-react'
 import { cn, formatDate, getInitials, getAvatarUrl } from '@/lib/utils'
 import { candidatesApi } from '@/api/candidates'
@@ -232,6 +233,8 @@ export default function CandidateDetailPage() {
   const applicantEmail = application.applicant?.email || '-'
   const applicantPhone = application.applicant?.phone || '-'
   const applicantPhoto = application.applicant?.avatar_url
+  const applicantCity = application.applicant?.city || ''
+  const applicantProvince = application.applicant?.province || ''
   const jobTitle = application.job?.title || '-'
   const jobCity = application.job?.city || ''
   const jobProvince = application.job?.province || ''
@@ -239,6 +242,39 @@ export default function CandidateDetailPage() {
   const timeline = application.timeline || []
   const currentStatus = application.current_status
   const cvSnapshot = application.cv_snapshot
+  const cvSource = application.cv_source || 'built' // Default to 'built' for backward compatibility
+  const uploadedDocument = application.uploaded_document
+  const expectedSalaryMin = application.applicant?.expected_salary_min
+  const expectedSalaryMax = application.applicant?.expected_salary_max
+
+  // Helper to format salary
+  const formatSalary = (amount: number): string => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount)
+  }
+
+  // Format salary range
+  const formatSalaryRange = (): string => {
+    if (expectedSalaryMin && expectedSalaryMax) {
+      return `${formatSalary(expectedSalaryMin)} - ${formatSalary(expectedSalaryMax)}`
+    } else if (expectedSalaryMin) {
+      return `Mulai dari ${formatSalary(expectedSalaryMin)}`
+    } else if (expectedSalaryMax) {
+      return `Hingga ${formatSalary(expectedSalaryMax)}`
+    }
+    return '-'
+  }
+
+  // Debug log - remove after verification
+  console.log('Application data:', {
+    cv_source: cvSource,
+    uploaded_document: uploadedDocument,
+    has_cv_snapshot: !!cvSnapshot
+  })
 
   // Generate PDF CV from snapshot data
   const handleDownloadCV = () => {
@@ -370,6 +406,34 @@ export default function CandidateDetailPage() {
                     <p className="font-medium">{formatDate(application.applied_at)}</p>
                   </div>
                 </div>
+                {/* Expected Salary */}
+                {(expectedSalaryMin || expectedSalaryMax) && (
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Ekspektasi Gaji</p>
+                      <p className="font-medium text-green-700">{formatSalaryRange()}</p>
+                    </div>
+                  </div>
+                )}
+                {/* Applicant Address */}
+                {(applicantCity || applicantProvince) && (
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+                      <MapPin className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Alamat</p>
+                      <p className="font-medium">
+                        {applicantCity}{applicantCity && applicantProvince && ', '}{applicantProvince}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
               {(jobCity || jobProvince) && (
                 <>
@@ -611,18 +675,71 @@ export default function CandidateDetailPage() {
                 Curriculum Vitae
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <Button 
-                className="w-full gap-2" 
-                onClick={handleDownloadCV}
-                disabled={!cvSnapshot}
-              >
-                <Download className="w-4 h-4" />
-                Download CV (PDF)
-              </Button>
-              <p className="text-xs text-gray-500 mt-2 text-center">
-                {cvSnapshot ? 'CV dibuat dari data lamaran kandidat' : 'Data CV tidak tersedia'}
-              </p>
+            <CardContent className="space-y-3">
+              {/* Show uploaded CV if available */}
+              {uploadedDocument && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-gray-600 bg-blue-50 p-2 rounded-lg">
+                    <FileUp className="w-4 h-4 text-blue-600" />
+                    <span className="font-medium text-blue-700">CV Upload (PDF)</span>
+                  </div>
+                  <Button 
+                    className="w-full gap-2 bg-blue-600 hover:bg-blue-700" 
+                    asChild
+                  >
+                    <a 
+                      href={uploadedDocument.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download CV Upload
+                    </a>
+                  </Button>
+                  <p className="text-xs text-gray-500 text-center">
+                    {uploadedDocument.name}
+                  </p>
+                </div>
+              )}
+
+              {/* Show separator if both CVs are available */}
+              {uploadedDocument && cvSnapshot && (
+                <Separator className="my-3" />
+              )}
+
+              {/* Show system CV if available */}
+              {cvSnapshot && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-gray-600 bg-green-50 p-2 rounded-lg">
+                    <FileText className="w-4 h-4 text-green-600" />
+                    <span className="font-medium text-green-700">CV dari Sistem</span>
+                  </div>
+                  <Button 
+                    variant={uploadedDocument ? "outline" : "default"}
+                    className={cn(
+                      "w-full gap-2",
+                      !uploadedDocument && "bg-green-600 hover:bg-green-700"
+                    )}
+                    onClick={handleDownloadCV}
+                  >
+                    <Download className="w-4 h-4" />
+                    Download CV Sistem
+                  </Button>
+                  <p className="text-xs text-gray-500 text-center">
+                    CV dibuat dari data profil kandidat
+                  </p>
+                </div>
+              )}
+
+              {/* Show no CV available message */}
+              {!cvSnapshot && !uploadedDocument && (
+                <div className="text-center py-4">
+                  <FileText className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">
+                    Data CV tidak tersedia
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
