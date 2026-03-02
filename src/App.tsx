@@ -25,6 +25,7 @@ import CompanyProfilePage from '@/pages/dashboard/CompanyProfilePage'
 import PaymentsPage from '@/pages/dashboard/PaymentsPage'
 import ChatPage from '@/pages/dashboard/ChatPage'
 import PoliciesPage from '@/pages/dashboard/PoliciesPage'
+import InterviewTestsPage from '@/pages/dashboard/InterviewTestsPage'
 
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -114,6 +115,7 @@ function App() {
           <Route path="/company-profile" element={<CompanyProfilePage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/policies" element={<PoliciesPage />} />
+          <Route path="/interview-tests" element={<InterviewTestsPage />} />
         </Route>
 
         {/* Default redirect */}

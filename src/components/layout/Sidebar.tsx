@@ -13,6 +13,7 @@ import {
   FileText,
   MessageCircle,
   FileQuestion,
+  ClipboardList,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -26,6 +27,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Lowongan', href: '/jobs', icon: Briefcase },
   { name: 'Kandidat', href: '/candidates', icon: Users },
+  { name: 'Tes Wawancara', href: '/interview-tests', icon: ClipboardList },
   { name: 'Kuota & Pembayaran', href: '/quota', icon: CreditCard },
   { name: 'Riwayat Pembayaran', href: '/payments', icon: FileText },
   { name: 'Profil Perusahaan', href: '/company-profile', icon: Building2 },
