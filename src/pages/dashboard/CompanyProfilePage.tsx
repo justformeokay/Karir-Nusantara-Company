@@ -563,7 +563,7 @@ export default function CompanyProfilePage() {
                         value={watch('industry')}
                         onValueChange={(value) => setValue('industry', value)}
                       >
-                        <SelectTrigger className={errors.industry ? 'border-red-500' : ''}>
+                        <SelectTrigger id="industry" className={errors.industry ? 'border-red-500' : ''}>
                           <SelectValue placeholder="Pilih industri" />
                         </SelectTrigger>
                         <SelectContent>
@@ -585,7 +585,7 @@ export default function CompanyProfilePage() {
                         value={watch('size')}
                         onValueChange={(value) => setValue('size', value)}
                       >
-                        <SelectTrigger className={errors.size ? 'border-red-500' : ''}>
+                        <SelectTrigger id="size" className={errors.size ? 'border-red-500' : ''}>
                           <SelectValue placeholder="Pilih ukuran" />
                         </SelectTrigger>
                         <SelectContent>
