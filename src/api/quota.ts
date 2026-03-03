@@ -30,6 +30,7 @@ export interface PaymentInfo {
   account_number: string
   account_name: string
   price_per_job: number
+  free_quota_limit: number
   packages: TopUpPackage[]
 }
 

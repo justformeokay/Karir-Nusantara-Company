@@ -37,16 +37,34 @@ import {
   Sparkles,
   Image,
   Download,
+  Eye,
+  Calendar,
+  FileText,
 } from 'lucide-react'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import { quotaApi } from '@/api/quota'
 import type { TopUpPackage } from '@/api/quota'
-import type { PaymentStatus } from '@/types'
+import type { PaymentStatus, PaymentProof } from '@/types'
 
-const statusConfig: Record<PaymentStatus, { label: string; icon: React.ElementType; color: string }> = {
-  pending: { label: 'Menunggu Konfirmasi', icon: Clock, color: 'text-amber-600 bg-amber-100' },
-  confirmed: { label: 'Dikonfirmasi', icon: CheckCircle, color: 'text-green-600 bg-green-100' },
-  rejected: { label: 'Ditolak', icon: XCircle, color: 'text-red-600 bg-red-100' },
+const statusConfig: Record<PaymentStatus, { label: string; icon: React.ElementType; color: string; bgColor: string }> = {
+  pending: { 
+    label: 'Menunggu Konfirmasi', 
+    icon: Clock, 
+    color: 'text-amber-600', 
+    bgColor: 'bg-amber-50 border-amber-200' 
+  },
+  confirmed: { 
+    label: 'Dikonfirmasi', 
+    icon: CheckCircle, 
+    color: 'text-green-600', 
+    bgColor: 'bg-green-50 border-green-200' 
+  },
+  rejected: { 
+    label: 'Ditolak', 
+    icon: XCircle, 
+    color: 'text-red-600', 
+    bgColor: 'bg-red-50 border-red-200' 
+  },
 }
 
 export default function QuotaPage() {
@@ -54,6 +72,8 @@ export default function QuotaPage() {
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
   const [selectedPackage, setSelectedPackage] = useState<TopUpPackage | null>(null)
   const [proofFile, setProofFile] = useState<File | null>(null)
+  const [selectedPayment, setSelectedPayment] = useState<PaymentProof | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch quota data
@@ -197,7 +217,7 @@ export default function QuotaPage() {
               Kuota Lowongan Gratis
             </CardTitle>
             <CardDescription>
-              Setiap perusahaan mendapat 10 lowongan gratis
+              Setiap perusahaan mendapat {paymentInfo?.free_quota_limit ?? 3} lowongan gratis
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -376,86 +396,266 @@ export default function QuotaPage() {
             Daftar pembayaran kuota lowongan Anda
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Lowongan</TableHead>
-                <TableHead>Jumlah</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Tanggal</TableHead>
-                <TableHead className="text-right">Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody data-testid="payment-history-list">
-              {isLoadingPayments ? (
-                [...Array(3)].map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-32 rounded-full" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
-                  </TableRow>
-                ))
-              ) : payments.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-12">
-                    <div className="flex flex-col items-center">
-                      <CreditCard className="w-12 h-12 text-gray-300 mb-3" />
-                      <p className="text-gray-500">Belum ada riwayat pembayaran</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                payments.map((payment) => {
-                  const config = statusConfig[payment.status]
-                  const Icon = config.icon
-                  return (
-                    <TableRow key={payment.id}>
-                      <TableCell>
-                        <span className="font-medium">{payment.job_title || '-'}</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-medium">{formatCurrency(payment.amount)}</span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={cn('gap-1 font-normal', config.color)}>
-                          <Icon className="w-3 h-3" />
-                          {config.label}
+        <CardContent className="space-y-3">
+          {isLoadingPayments ? (
+            <div className="space-y-3">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="p-4 border rounded-lg">
+                  <Skeleton className="h-20 w-full" />
+                </div>
+              ))}
+            </div>
+          ) : payments.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="flex flex-col items-center">
+                <CreditCard className="w-12 h-12 text-gray-300 mb-3" />
+                <p className="text-gray-500">Belum ada riwayat pembayaran</p>
+              </div>
+            </div>
+          ) : (
+            payments.map((payment) => {
+              const config = statusConfig[payment.status]
+              const Icon = config.icon
+              return (
+                <div
+                  key={payment.id}
+                  className={cn('p-4 rounded-lg border-l-4 hover:shadow-md transition-all cursor-pointer', config.bgColor)}
+                  onClick={() => {
+                    setSelectedPayment(payment)
+                    setDetailOpen(true)
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <h4 className="font-semibold text-gray-900">
+                          {payment.package_name || payment.job_title || 'Pembayaran Kuota'}
+                        </h4>
+                        <Badge variant="secondary" className="text-xs">
+                          #{payment.id}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="text-sm">{formatDate(payment.submitted_at)}</p>
-                          {payment.confirmed_at && (
-                            <p className="text-xs text-gray-500">
-                              Dikonfirmasi: {formatDate(payment.confirmed_at)}
-                            </p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
+                      </div>
+                      <p className="text-sm text-gray-600 flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {formatDate(payment.submitted_at)}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="font-bold text-blue-600">
+                        {formatCurrency(payment.amount)}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedPayment(payment)
+                            setDetailOpen(true)
+                          }}
+                          className="gap-1"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
                         {payment.status === 'confirmed' && (
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDownloadInvoice(payment.id)}
-                            className="gap-2"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDownloadInvoice(payment.id)
+                            }}
+                            className="gap-1"
                           >
                             <Download className="w-4 h-4" />
-                            Invoice
                           </Button>
                         )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })
-              )}
-            </TableBody>
-          </Table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          )}
         </CardContent>
       </Card>
+
+      {/* Payment Detail Modal */}
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Detail Pembayaran</DialogTitle>
+            <DialogDescription>
+              Informasi lengkap tentang status pembayaran Anda
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedPayment && (
+            <div className="space-y-6">
+              {/* Proof Image */}
+              {selectedPayment.proof_image_url && (
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Bukti Transfer</p>
+                  <div className="w-full rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                    <img
+                      src={`http://localhost:8081${selectedPayment.proof_image_url}`}
+                      alt="Bukti pembayaran"
+                      className="w-full h-auto object-cover max-h-80"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f3f4f6" width="400" height="300"/%3E%3Ctext x="50%25" y="50%25" font-family="sans-serif" font-size="16" fill="%239ca3af" text-anchor="middle" dy=".3em"%3EGambar bukti tidak ditemukan%3C/text%3E%3C/svg%3E'
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Status Header */}
+              <div className={cn('p-4 rounded-lg border-l-4', statusConfig[selectedPayment.status].bgColor)}>
+                <div className="flex items-center gap-2 mb-2">
+                  {(() => {
+                    const StatusIcon = statusConfig[selectedPayment.status].icon
+                    return <StatusIcon className={cn('w-5 h-5', statusConfig[selectedPayment.status].color)} />
+                  })()}
+                  <span className={cn('font-semibold', statusConfig[selectedPayment.status].color)}>
+                    {statusConfig[selectedPayment.status].label}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-700">
+                  {selectedPayment.status === 'pending' && 
+                    'Pembayaran Anda sedang menunggu konfirmasi dari tim kami. Biasanya dikonfirmasi dalam 1-2 jam kerja.'}
+                  {selectedPayment.status === 'confirmed' && 
+                    'Pembayaran Anda telah dikonfirmasi. Kuota telah ditambahkan ke akun Anda.'}
+                  {selectedPayment.status === 'rejected' && 
+                    'Pembayaran Anda telah ditolak. Silakan hubungi support untuk informasi lebih lanjut.'}
+                </p>
+              </div>
+
+              {/* Payment Details */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs text-gray-500 uppercase font-semibold">ID Pembayaran</p>
+                  <p className="text-sm font-medium">#{selectedPayment.id}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Jumlah</p>
+                  <p className="text-sm font-bold text-blue-600">{formatCurrency(selectedPayment.amount)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Kuota</p>
+                  <p className="text-sm font-medium">{selectedPayment.quota_amount} lowongan</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Tipe Pembayaran</p>
+                  <p className="text-sm font-medium">
+                    {selectedPayment.package_id ? `Paket: ${selectedPayment.package_name}` : 'Single Posting'}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Tanggal Pengajuan</p>
+                  <p className="text-sm font-medium">{formatDate(selectedPayment.submitted_at)}</p>
+                </div>
+                {selectedPayment.confirmed_at && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-gray-500 uppercase font-semibold">Tanggal Konfirmasi</p>
+                    <p className="text-sm font-medium">{formatDate(selectedPayment.confirmed_at)}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Job Title */}
+              {selectedPayment.job_title && (
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Lowongan</p>
+                  <p className="text-sm font-medium text-gray-900">{selectedPayment.job_title}</p>
+                </div>
+              )}
+
+              {/* Note */}
+              {selectedPayment.note && (
+                <div className={cn('p-3 rounded-lg border-l-4 border-l-blue-400 bg-blue-50', {
+                  'border-l-red-400 bg-red-50': selectedPayment.status === 'rejected',
+                })}>
+                  <div className="flex items-start gap-2">
+                    {selectedPayment.status === 'rejected' ? (
+                      <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                    ) : (
+                      <FileText className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    )}
+                    <div>
+                      <p className="text-xs font-semibold text-gray-700 mb-1">Catatan</p>
+                      <p className="text-sm text-gray-700">{selectedPayment.note}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Timeline */}
+              <div className="space-y-3">
+                <p className="text-xs text-gray-500 uppercase font-semibold">Timeline</p>
+                <div className="space-y-2">
+                  {/* Submitted */}
+                  <div className="flex gap-3">
+                    <div className="flex flex-col items-center">
+                      <div className="w-3 h-3 rounded-full bg-blue-500 mt-1"></div>
+                      <div className="w-0.5 h-8 bg-gray-200 my-1"></div>
+                    </div>
+                    <div className="pb-2">
+                      <p className="text-sm font-medium text-gray-900">Pembayaran Diajukan</p>
+                      <p className="text-xs text-gray-500">{formatDate(selectedPayment.submitted_at)}</p>
+                    </div>
+                  </div>
+
+                  {/* Confirmed/Rejected */}
+                  <div className="flex gap-3">
+                    <div className="flex flex-col items-center">
+                      <div className={cn(
+                        'w-3 h-3 rounded-full',
+                        selectedPayment.confirmed_at ? 'bg-green-500' : 'bg-gray-300'
+                      )}></div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {selectedPayment.confirmed_at ? 'Pembayaran Dikonfirmasi' : 
+                         selectedPayment.status === 'rejected' ? 'Pembayaran Ditolak' :
+                         'Menunggu Konfirmasi'}
+                      </p>
+                      {selectedPayment.confirmed_at && (
+                        <p className="text-xs text-gray-500">{formatDate(selectedPayment.confirmed_at)}</p>
+                      )}
+                      {selectedPayment.status === 'pending' && (
+                        <p className="text-xs text-amber-600">Dalam proses verifikasi...</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-4 border-t">
+                {selectedPayment.status === 'confirmed' && (
+                  <Button 
+                    onClick={() => {
+                      handleDownloadInvoice(selectedPayment.id)
+                      setDetailOpen(false)
+                    }}
+                    className="flex-1 gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Unduh Invoice
+                  </Button>
+                )}
+                <Button 
+                  variant="outline" 
+                  onClick={() => setDetailOpen(false)}
+                  className="flex-1"
+                >
+                  Tutup
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Upload Payment Proof Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={(open) => {

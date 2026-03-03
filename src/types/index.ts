@@ -289,7 +289,10 @@ export interface PaymentProof {
   id: number
   job_id?: number
   job_title?: string
+  package_id?: string
+  package_name?: string
   amount: number
+  quota_amount: number
   proof_image_url: string
   status: PaymentStatus
   status_label: string
