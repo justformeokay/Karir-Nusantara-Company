@@ -140,13 +140,13 @@ export default function ChatPage() {
   }, [previewURL])
 
   // Filter conversations
-  const filteredConversations = conversations.filter((conv) =>
+  const filteredConversations = (conversations || []).filter((conv) =>
     conv.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     conv.subject.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   // Check if there's any active conversation (ticketing mode)
-  const hasActiveConversation = conversations.some(
+  const hasActiveConversation = (conversations || []).some(
     (conv) => conv.status === 'open' || conv.status === 'in_progress'
   )
 

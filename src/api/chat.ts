@@ -61,21 +61,23 @@ export const chatApi = {
   // Get all conversations for logged in company
   getConversations: async (): Promise<Conversation[]> => {
     const response = await api.get<ApiResponse<Conversation[]>>('/company/chat/conversations');
-    return response.data;
+    return response.data || [];
   },
 
   // Create a new conversation
   createConversation: async (data: CreateConversationRequest): Promise<Conversation> => {
     const response = await api.post<ApiResponse<Conversation>>('/company/chat/conversations', data);
-    return response.data;
+    return response.data || {};
   },
 
   // Get a specific conversation with messages
   getConversation: async (id: number): Promise<ConversationDetail> => {
     const response = await api.get<ApiResponse<ConversationDetail>>(`/company/chat/conversations/${id}`);
+    const data = response.data || {};
     return {
-      ...response.data,
-      messages: response.data.messages || [],
+      ...data,
+      conversation: data.conversation || {},
+      messages: data.messages || [],
     };
   },
 
@@ -85,7 +87,7 @@ export const chatApi = {
       `/company/chat/conversations/${conversationId}/messages`,
       data
     );
-    return response.data;
+    return response.data || {};
   },
 
   // Upload attachment (image or audio)
