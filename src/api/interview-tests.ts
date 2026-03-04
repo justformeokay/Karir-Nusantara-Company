@@ -99,4 +99,28 @@ export const interviewTestsApi = {
   // Copy an admin test to company's own collection
   copyFromAdmin: (id: number) =>
     api.post<ApiResponse<InterviewTest>>(`/company/interview-tests/${id}/copy`),
+
+  // ---- Submission / Assignment ----
+
+  // Assign a test to a candidate (via application ID)
+  assignTest: (applicationId: number, data: { interview_test_id: number; candidate_user_id: number }) =>
+    api.post<ApiResponse<TestSubmission>>(`/company/applications/${applicationId}/assign-test`, data),
+
+  // Get all test submissions for an application
+  getApplicationSubmissions: (applicationId: number) =>
+    api.get<ApiResponse<TestSubmission[]>>(`/company/applications/${applicationId}/interview-tests`),
+}
+
+// ---- Submission / Assignment types ----
+
+export interface TestSubmission {
+  id: number
+  status: 'pending' | 'in_progress' | 'submitted' | 'completed'
+  score: number | null
+  percentage: number | null
+  is_passed: boolean | null
+  started_at: string | null
+  submitted_at: string | null
+  application_id: number | null
+  test: InterviewTest
 }

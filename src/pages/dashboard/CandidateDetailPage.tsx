@@ -48,9 +48,13 @@ import {
   Video,
   MessageCircle,
   FileUp,
+  ClipboardList,
+  Plus,
 } from 'lucide-react'
 import { cn, formatDate, getInitials, getAvatarUrl } from '@/lib/utils'
 import { candidatesApi } from '@/api/candidates'
+import { interviewTestsApi } from '@/api/interview-tests'
+import type { TestSubmission } from '@/api/interview-tests'
 import type { ApplicationStatus } from '@/types'
 
 const statusConfig: Record<ApplicationStatus, { label: string; color: string }> = {
@@ -98,8 +102,10 @@ export default function CandidateDetailPage() {
   const [showStatusDialog, setShowStatusDialog] = useState(false)
   const [newStatus, setNewStatus] = useState<ApplicationStatus>('submitted')
   const [statusNote, setStatusNote] = useState('')
-  
-  // Interview scheduling state
+
+  // Interview test state
+  const [showAssignTestDialog, setShowAssignTestDialog] = useState(false)
+  const [selectedTestId, setSelectedTestId] = useState<string>('')
   const [interviewDate, setInterviewDate] = useState('')
   const [interviewTime, setInterviewTime] = useState('')
   const [interviewType, setInterviewType] = useState<'online' | 'offline' | 'whatsapp_notification'>('offline')
@@ -118,7 +124,40 @@ export default function CandidateDetailPage() {
 
   const application = applicationData?.data
 
-  // Reset interview form
+  // Fetch interview test submissions for this application (use numeric id from application data)
+  const { data: submissionsData, refetch: refetchSubmissions } = useQuery({
+    queryKey: ['applicationSubmissions', application?.id],
+    queryFn: () => interviewTestsApi.getApplicationSubmissions(application!.id),
+    enabled: !!application?.id,
+  })
+  const testSubmissions: TestSubmission[] = (submissionsData as { data?: TestSubmission[] } | undefined)?.data ?? []
+
+  // Fetch company's active tests for the assign dialog
+  const { data: myTestsData } = useQuery({
+    queryKey: ['myInterviewTests', 'active'],
+    queryFn: () => interviewTestsApi.getMyTests('active'),
+    enabled: showAssignTestDialog,
+  })
+  const availableTests = (myTestsData as { data?: { id: number; title: string }[] } | undefined)?.data ?? []
+
+  // Assign test mutation
+  const assignTestMutation = useMutation({
+    mutationFn: () =>
+      interviewTestsApi.assignTest(application!.id, {
+        interview_test_id: Number(selectedTestId),
+        candidate_user_id: application?.applicant?.id ?? 0,
+      }),
+    onSuccess: () => {
+      toast.success('Tes wawancara berhasil diberikan ke kandidat!')
+      setShowAssignTestDialog(false)
+      setSelectedTestId('')
+      refetchSubmissions()
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg ?? 'Gagal memberikan tes wawancara')
+    },
+  })
   const resetInterviewForm = () => {
     setInterviewDate('')
     setInterviewTime('')
@@ -743,6 +782,75 @@ export default function CandidateDetailPage() {
             </CardContent>
           </Card>
 
+          {/* Interview Tests */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5" />
+                  Tes Wawancara
+                </CardTitle>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1"
+                  onClick={() => setShowAssignTestDialog(true)}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Assign
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {testSubmissions.length === 0 ? (
+                <div className="text-center py-4">
+                  <ClipboardList className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">Belum ada tes yang diberikan</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {testSubmissions.map((sub) => (
+                    <div key={sub.id} className="border rounded-lg p-3 space-y-1">
+                      <p className="font-medium text-sm text-gray-800 line-clamp-1">
+                        {sub.test?.title ?? `Tes #${sub.id}`}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className={cn(
+                          'text-xs font-medium px-2 py-0.5 rounded-full',
+                          sub.status === 'completed' ? 'bg-green-100 text-green-700' :
+                          sub.status === 'submitted' ? 'bg-blue-100 text-blue-700' :
+                          sub.status === 'in_progress' ? 'bg-amber-100 text-amber-700' :
+                          'bg-gray-100 text-gray-600'
+                        )}>
+                          {sub.status === 'completed' ? 'Selesai' :
+                           sub.status === 'submitted' ? 'Terkirim' :
+                           sub.status === 'in_progress' ? 'Sedang Dikerjakan' :
+                           'Belum Dikerjakan'}
+                        </span>
+                        {sub.score !== null && (
+                          <span className={cn(
+                            'text-xs font-bold',
+                            sub.is_passed ? 'text-green-600' : 'text-red-600'
+                          )}>
+                            {sub.score} / {sub.test?.total_points ?? '-'}
+                            {sub.is_passed !== null && (
+                              <span className="ml-1">{sub.is_passed ? '✓' : '✗'}</span>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                      {sub.submitted_at && (
+                        <p className="text-xs text-gray-400">
+                          Dikerjakan: {formatDate(sub.submitted_at)}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Timeline */}
           <Card>
             <CardHeader>
@@ -1040,6 +1148,55 @@ export default function CandidateDetailPage() {
             </Button>
             <Button onClick={handleUpdateStatus} disabled={updateStatusMutation.isPending}>
               {updateStatusMutation.isPending ? 'Menyimpan...' : 'Simpan'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign Interview Test Dialog */}
+      <Dialog open={showAssignTestDialog} onOpenChange={(open) => {
+        setShowAssignTestDialog(open)
+        if (!open) setSelectedTestId('')
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assign Tes Wawancara</DialogTitle>
+            <DialogDescription>
+              Pilih tes yang ingin diberikan kepada kandidat ini.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Tes Wawancara</Label>
+              <Select value={selectedTestId} onValueChange={setSelectedTestId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih tes..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTests.length === 0 ? (
+                    <div className="py-4 text-center text-sm text-gray-500">
+                      Tidak ada tes aktif. Buat atau aktifkan tes terlebih dahulu.
+                    </div>
+                  ) : (
+                    availableTests.map((test) => (
+                      <SelectItem key={test.id} value={String(test.id)}>
+                        {test.title}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAssignTestDialog(false)}>
+              Batal
+            </Button>
+            <Button
+              onClick={() => assignTestMutation.mutate()}
+              disabled={!selectedTestId || assignTestMutation.isPending}
+            >
+              {assignTestMutation.isPending ? 'Mengirim...' : 'Assign Tes'}
             </Button>
           </DialogFooter>
         </DialogContent>
